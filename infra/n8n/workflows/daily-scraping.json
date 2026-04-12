@@ -1,0 +1,67 @@
+{
+  "name": "Daily scraping trigger",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-1",
+      "name": "Schedule · 02:00 every day",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:5000/api/webhooks/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Signature",
+              "value": "={{$credentials.n8nSharedSecret}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "jsonBody": "={ \"action\": \"run_daily_scraping\", \"trigger\": \"cron\" }",
+        "options": {}
+      },
+      "id": "http-1",
+      "name": "POST /api/webhooks/n8n",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "Schedule · 02:00 every day": {
+      "main": [
+        [
+          {
+            "node": "POST /api/webhooks/n8n",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "meta": {
+    "description": "Fires the backend scraping pipeline every night at 02:00 (Africa/Tunis)."
+  }
+}

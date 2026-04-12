@@ -1,0 +1,155 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "projects": "Projects",
+    "analytics": "Analytics",
+    "admin": "Admin",
+    "settings": "Settings"
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "actions": "Actions",
+    "yes": "Yes",
+    "no": "No",
+    "close": "Close",
+    "logout": "Log out",
+    "notifications": "Notifications",
+    "menu": "Menu",
+    "language": "Language",
+    "online": "online"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to continue",
+      "submit": "Sign in"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Start exploring the platform",
+      "submit": "Create account"
+    },
+    "email": "Email",
+    "password": "Password",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "switch": {
+      "toRegister": "Don't have an account?",
+      "toLogin": "Already have one?",
+      "registerCta": "Register",
+      "loginCta": "Sign in"
+    },
+    "error": "Something went wrong",
+    "brand": {
+      "tagline": "AI Marketing<br/>Intelligence Agent",
+      "body": "Discover competitors, analyze their social presence, and generate data-driven campaign strategies — in one dashboard."
+    }
+  },
+  "dashboard": {
+    "greeting": "Hi, {{name}} 👋",
+    "subtitle": "Here's what's happening across your projects today.",
+    "kpi": {
+      "projects": "Projects",
+      "projectsDelta": "+2 this week",
+      "competitors": "Competitors tracked",
+      "competitorsDelta": "+5 this week",
+      "posts": "Posts analyzed",
+      "postsDelta": "+142 today",
+      "engagement": "Avg engagement",
+      "engagementDelta": "+0.3 pts"
+    },
+    "charts": {
+      "engagement": "Engagement this week",
+      "engagementSubtitle": "Likes per day across tracked competitors",
+      "mix": "Content mix",
+      "mixSubtitle": "Format share across tracked brands",
+      "posts": "Posts published per day"
+    }
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "Business ideas you're tracking.",
+    "new": "New project",
+    "empty": "No projects yet.",
+    "table": {
+      "idea": "Business idea",
+      "category": "Category",
+      "status": "Status",
+      "pipeline": "Pipeline"
+    },
+    "live": {
+      "title": "Live progress demo",
+      "subtitle": "Emits fake scraping events via Socket.IO — proves the WS pipeline works end-to-end.",
+      "trigger": "Trigger",
+      "placeholder": "projectId",
+      "idle": "No active job — click Trigger to stream events.",
+      "starting": "Starting…",
+      "done": "Done"
+    }
+  },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Cross-competitor engagement and reach.",
+    "followers": "Followers by brand",
+    "engagementRate": "Engagement rate (%) — 4 weeks"
+  },
+  "admin": {
+    "title": "Admin panel",
+    "subtitle": "Manage users, roles, and system health.",
+    "stats": {
+      "totalUsers": "Total users",
+      "activeUsers": "Active",
+      "admins": "Admins",
+      "projects": "Projects"
+    },
+    "users": {
+      "title": "Users",
+      "table": {
+        "name": "Name",
+        "email": "Email",
+        "role": "Role",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "status": {
+        "active": "active",
+        "disabled": "disabled"
+      },
+      "toggle": {
+        "enable": "Enable",
+        "disable": "Disable"
+      },
+      "confirmDelete": "Delete {{email}}?"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role"
+  },
+  "errors": {
+    "forbidden": {
+      "title": "403 — Forbidden",
+      "body": "You don't have permission to view this page.",
+      "back": "Back to dashboard"
+    }
+  },
+  "footer": {
+    "system": "PFE Marketing Intelligence Agent",
+    "copyright": "© {{year}} {{system}}. All rights reserved.",
+    "builtBy": "Built by"
+  },
+  "langs": {
+    "fr": "Français",
+    "ar": "العربية",
+    "en": "English"
+  }
+}

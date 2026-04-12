@@ -1,0 +1,45 @@
+# compose.dev.yml — local dev overlay.
+# - Bind-mounts source for hot reload
+# - Exposes every service port on the host
+# - Replaces frontend nginx image with a Vite dev server
+# - Enables local mongo by default (pair with --profile local-db)
+
+services:
+  backend:
+    command: ["npm", "run", "dev"]
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+
+  frontend:
+    # Override: run Vite dev server instead of the nginx production image
+    image: node:20-alpine
+    build: !reset null
+    working_dir: /app
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    environment:
+      BACKEND_URL: http://backend:5000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+
+  scraper:
+    command: ["uv", "run", "uvicorn", "scraper_service:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./backend/scraper:/app
+    ports:
+      - "8000:8000"
+
+  n8n:
+    ports:
+      - "5678:5678"
+
+  mongo:
+    ports:
+      - "27017:27017"

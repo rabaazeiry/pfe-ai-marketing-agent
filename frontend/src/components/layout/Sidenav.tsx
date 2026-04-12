@@ -1,20 +1,22 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 import { FiHome, FiFolder, FiBarChart2, FiUsers, FiSettings, FiX } from 'react-icons/fi';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/stores/ui.store';
 import { useAuthStore } from '@/stores/auth.store';
 
-type NavItem = { to: string; label: string; icon: React.ReactNode; adminOnly?: boolean };
+type NavItem = { to: string; labelKey: string; icon: React.ReactNode; adminOnly?: boolean };
 
 const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: <FiHome /> },
-  { to: '/projects', label: 'Projects', icon: <FiFolder /> },
-  { to: '/analytics', label: 'Analytics', icon: <FiBarChart2 /> },
-  { to: '/admin', label: 'Admin', icon: <FiUsers />, adminOnly: true },
-  { to: '/settings', label: 'Settings', icon: <FiSettings /> }
+  { to: '/', labelKey: 'nav.dashboard', icon: <FiHome /> },
+  { to: '/projects', labelKey: 'nav.projects', icon: <FiFolder /> },
+  { to: '/analytics', labelKey: 'nav.analytics', icon: <FiBarChart2 /> },
+  { to: '/admin', labelKey: 'nav.admin', icon: <FiUsers />, adminOnly: true },
+  { to: '/settings', labelKey: 'nav.settings', icon: <FiSettings /> }
 ];
 
 export function Sidenav() {
+  const { t } = useTranslation();
   const drawerOpen = useUIStore((s) => s.drawerOpen);
   const setDrawer = useUIStore((s) => s.setDrawer);
   const role = useAuthStore((s) => s.user?.role);
@@ -24,7 +26,6 @@ export function Sidenav() {
 
   return (
     <>
-      {/* Overlay (mobile) */}
       <div
         onClick={() => setDrawer(false)}
         className={clsx(
@@ -35,9 +36,9 @@ export function Sidenav() {
 
       <aside
         className={clsx(
-          'fixed z-40 top-0 left-0 h-full w-72 bg-white border-r border-slate-200 shadow-soft transition-transform',
+          'fixed z-40 top-0 start-0 h-full w-72 bg-white border-e border-slate-200 shadow-soft transition-transform',
           'lg:translate-x-0 lg:static lg:shadow-none',
-          drawerOpen ? 'translate-x-0' : '-translate-x-full'
+          drawerOpen ? 'translate-x-0' : 'rtl:translate-x-full ltr:-translate-x-full'
         )}
       >
         <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100">
@@ -48,7 +49,7 @@ export function Sidenav() {
           <button
             className="lg:hidden text-slate-500 hover:text-slate-800"
             onClick={() => setDrawer(false)}
-            aria-label="Close menu"
+            aria-label={t('common.close')}
           >
             <FiX size={22} />
           </button>
@@ -70,15 +71,15 @@ export function Sidenav() {
                 )}
               >
                 <span className="text-lg">{n.icon}</span>
-                <span>{n.label}</span>
-                {n.adminOnly && <span className="ml-auto badge-admin">admin</span>}
+                <span>{t(n.labelKey)}</span>
+                {n.adminOnly && <span className="ms-auto badge-admin">admin</span>}
               </Link>
             );
           })}
         </nav>
 
         <div className="absolute bottom-0 inset-x-0 p-4 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500">
-          v0.1.0 · online
+          v0.1.0 · {t('common.online')}
         </div>
       </aside>
     </>

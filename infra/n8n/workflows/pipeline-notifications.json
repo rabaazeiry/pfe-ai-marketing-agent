@@ -1,0 +1,73 @@
+{
+  "name": "Pipeline event notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "pipeline-event",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook /pipeline-event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{$json.event}}",
+        "rules": {
+          "values": [
+            { "operation": "equal", "value2": "scraping:complete" },
+            { "operation": "equal", "value2": "campaign:generated" }
+          ]
+        }
+      },
+      "id": "switch-1",
+      "name": "Switch on event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "text": "=✅ Scraping complete for project {{$json.payload.projectId}}",
+        "options": {}
+      },
+      "id": "log-1",
+      "name": "Log scraping complete",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [780, 220]
+    },
+    {
+      "parameters": {
+        "text": "=🎯 Campaign generated for project {{$json.payload.projectId}}",
+        "options": {}
+      },
+      "id": "log-2",
+      "name": "Log campaign generated",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [780, 380]
+    }
+  ],
+  "connections": {
+    "Webhook /pipeline-event": {
+      "main": [[{ "node": "Switch on event", "type": "main", "index": 0 }]]
+    },
+    "Switch on event": {
+      "main": [
+        [{ "node": "Log scraping complete", "type": "main", "index": 0 }],
+        [{ "node": "Log campaign generated", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "meta": {
+    "description": "Receives backend pipeline events and fans out notifications. Replace the noOp nodes with Slack/Email/Telegram nodes when ready."
+  }
+}

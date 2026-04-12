@@ -10,7 +10,8 @@ export function getSocket(): Socket {
 
   socket = io(url, {
     auth: { token },
-    transports: ['websocket'],
+    withCredentials: true,
+    transports: ['websocket', 'polling'],
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: 10,

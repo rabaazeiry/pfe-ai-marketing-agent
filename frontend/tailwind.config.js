@@ -19,12 +19,13 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        arabic: ['"Noto Sans Arabic"', '"Segoe UI"', 'Tahoma', 'sans-serif']
       },
       boxShadow: {
         soft: '0 6px 24px -12px rgba(16, 24, 40, 0.12)'
       }
     }
   },
-  plugins: []
+  plugins: [require('tailwindcss-rtl')]
 };

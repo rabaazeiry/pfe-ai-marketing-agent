@@ -8,7 +8,17 @@
       "Bash(clip)",
       "Bash(npm install:*)",
       "Bash(npm create:*)",
-      "Bash(npx tailwindcss:*)"
+      "Bash(npx tailwindcss:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(node -e \"require\\('./src/app'\\); require\\('./src/config/socket'\\); require\\('./src/routes/admin.routes'\\); require\\('./src/routes/ws-demo.routes'\\); console.log\\('OK: all backend modules load'\\)\")",
+      "Bash(node --check src/seed/seed.js)",
+      "Bash(chmod +x \"C:/Users/Client/Desktop/pfe_marketing_agent11/scripts/dev.sh\")",
+      "Bash(bash -n \"C:/Users/Client/Desktop/pfe_marketing_agent11/scripts/dev.sh\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(r'C:/Users/Client/Desktop/pfe_marketing_agent11/backend/scraper/scraper_service.py'\\).read\\(\\)\\); print\\('scraper_service.py OK'\\)\")",
+      "Bash(powershell:*)",
+      "Bash(node -e \"require\\('./src/app'\\); require\\('./src/routes/webhooks.routes'\\); require\\('./src/services/n8n.notify'\\); console.log\\('OK'\\)\")",
+      "Bash(python:*)"
     ]
   }
 }

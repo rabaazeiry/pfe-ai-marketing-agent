@@ -1,0 +1,27 @@
+# compose.prod.yml — production overlay.
+# Assumes images are pre-built (or pulled from a registry) and env is injected
+# by the hosting platform (no .env file mounted).
+
+services:
+  backend:
+    restart: always
+    environment:
+      NODE_ENV: production
+    # In prod we only expose via the frontend (nginx reverse-proxies /api + /socket.io).
+    # Uncomment to expose directly:
+    # ports:
+    #   - "5000:5000"
+
+  frontend:
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+
+  scraper:
+    restart: always
+
+  n8n:
+    restart: always
+    # n8n UI should sit behind a reverse proxy with TLS in prod.
+    # ports:
+    #   - "5678:5678"

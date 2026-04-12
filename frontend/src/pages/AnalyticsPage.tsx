@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 
 const followers = [
@@ -16,15 +17,16 @@ const engagementOverTime = [
 ];
 
 export function AnalyticsPage() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Analytics</h1>
-        <p className="text-slate-500">Cross-competitor engagement and reach.</p>
+        <h1 className="text-2xl font-semibold text-slate-900">{t('analytics.title')}</h1>
+        <p className="text-slate-500">{t('analytics.subtitle')}</p>
       </div>
 
       <div className="card">
-        <h3 className="font-semibold text-slate-900 mb-2">Followers by brand</h3>
+        <h3 className="font-semibold text-slate-900 mb-2">{t('analytics.followers')}</h3>
         <div className="h-72">
           <ResponsiveContainer>
             <BarChart data={followers}>
@@ -39,7 +41,7 @@ export function AnalyticsPage() {
       </div>
 
       <div className="card">
-        <h3 className="font-semibold text-slate-900 mb-2">Engagement rate (%) — 4 weeks</h3>
+        <h3 className="font-semibold text-slate-900 mb-2">{t('analytics.engagementRate')}</h3>
         <div className="h-72">
           <ResponsiveContainer>
             <LineChart data={engagementOverTime}>

@@ -1,10 +1,13 @@
 import { FiMenu, FiLogOut, FiBell } from 'react-icons/fi';
+import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/stores/ui.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useNavigate } from '@tanstack/react-router';
 import { closeSocket } from '@/lib/ws/socket';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export function Topbar() {
+  const { t } = useTranslation();
   const toggleDrawer = useUIStore((s) => s.toggleDrawer);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -21,21 +24,26 @@ export function Topbar() {
       <button
         className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600"
         onClick={toggleDrawer}
-        aria-label="Open menu"
+        aria-label={t('common.menu')}
       >
         <FiMenu size={22} />
       </button>
 
       <div className="flex-1" />
 
-      <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 relative" aria-label="Notifications">
+      <LanguageSwitcher />
+
+      <button
+        className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 relative"
+        aria-label={t('common.notifications')}
+      >
         <FiBell size={20} />
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
+        <span className="absolute top-1.5 end-1.5 w-2 h-2 rounded-full bg-red-500" />
       </button>
 
       {user && (
-        <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
-          <div className="text-right hidden sm:block">
+        <div className="flex items-center gap-3 ps-3 border-s border-slate-200">
+          <div className="text-end hidden sm:block">
             <div className="text-sm font-medium text-slate-800">
               {user.firstName} {user.lastName}
             </div>
@@ -50,8 +58,8 @@ export function Topbar() {
           <button
             onClick={handleLogout}
             className="p-2 rounded-lg hover:bg-slate-100 text-slate-500"
-            aria-label="Logout"
-            title="Logout"
+            aria-label={t('common.logout')}
+            title={t('common.logout')}
           >
             <FiLogOut size={20} />
           </button>

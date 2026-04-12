@@ -23,7 +23,23 @@ Server starts on `PORT` from `.env` (default 5000). No test runner, linter, or b
 
 ### Python scraper microservice
 
-`backend/src/scraper/scraper_service.py` is a separate FastAPI service using Crawl4AI for Facebook scraping. It is not started by `npm` — run it independently (`uvicorn scraper_service:app`) and install its own Python deps (fastapi, crawl4ai, beautifulsoup4, pydantic).
+`backend/scraper/` is a separate FastAPI service, managed with [uv](https://docs.astral.sh/uv/). It is not started by `npm`:
+
+```bash
+cd backend/scraper
+uv sync                          # base HTTP-only deps
+uv run uvicorn scraper_service:app --reload --port 8000
+# optional: real browser rendering
+uv sync --extra browser
+uv run playwright install chromium
+SCRAPER_USE_BROWSER=true uv run uvicorn scraper_service:app --reload --port 8000
+```
+
+The Node backend talks to it over `SCRAPER_URL` (default `http://localhost:8000` / `http://scraper:8000` inside compose).
+
+### Dev launcher scripts
+
+`scripts/dev.ps1`, `scripts/dev.bat`, `scripts/dev.sh` boot the whole dev stack (backend + frontend + scraper) with one command. See `scripts/README.md` for flags.
 
 ## Architecture
 

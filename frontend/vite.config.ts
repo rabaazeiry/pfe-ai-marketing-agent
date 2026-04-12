@@ -3,6 +3,8 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import babel from '@rolldown/plugin-babel';
 import path from 'node:path';
 
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+
 export default defineConfig({
   plugins: [
     react(),
@@ -14,10 +16,11 @@ export default defineConfig({
     }
   },
   server: {
+    host: true, // expose on 0.0.0.0 (needed inside Docker)
     port: 5173,
     proxy: {
-      '/api':     { target: 'http://localhost:5000', changeOrigin: true },
-      '/socket.io': { target: 'http://localhost:5000', ws: true, changeOrigin: true }
+      '/api':       { target: BACKEND_URL, changeOrigin: true },
+      '/socket.io': { target: BACKEND_URL, ws: true, changeOrigin: true }
     }
   }
 });

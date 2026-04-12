@@ -2,8 +2,10 @@ import { Outlet } from '@tanstack/react-router';
 import { Sidenav } from './Sidenav';
 import { Topbar } from './Topbar';
 import { Footer } from './Footer';
+import { useLangEffect } from '@/i18n/useLangEffect';
 
 export function AppShell() {
+  useLangEffect();
   return (
     <div className="min-h-screen lg:flex">
       <Sidenav />

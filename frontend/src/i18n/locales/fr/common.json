@@ -1,0 +1,155 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "projects": "Projets",
+    "analytics": "Analytique",
+    "admin": "Admin",
+    "settings": "Paramètres"
+  },
+  "common": {
+    "loading": "Chargement…",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "search": "Rechercher",
+    "actions": "Actions",
+    "yes": "Oui",
+    "no": "Non",
+    "close": "Fermer",
+    "logout": "Déconnexion",
+    "notifications": "Notifications",
+    "menu": "Menu",
+    "language": "Langue",
+    "online": "en ligne"
+  },
+  "auth": {
+    "login": {
+      "title": "Bon retour",
+      "subtitle": "Connectez-vous pour continuer",
+      "submit": "Se connecter"
+    },
+    "register": {
+      "title": "Créez votre compte",
+      "subtitle": "Commencez à explorer la plateforme",
+      "submit": "Créer un compte"
+    },
+    "email": "Email",
+    "password": "Mot de passe",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "switch": {
+      "toRegister": "Vous n'avez pas de compte ?",
+      "toLogin": "Vous avez déjà un compte ?",
+      "registerCta": "Inscription",
+      "loginCta": "Connexion"
+    },
+    "error": "Une erreur est survenue",
+    "brand": {
+      "tagline": "Agent d'intelligence<br/>marketing par IA",
+      "body": "Découvrez vos concurrents, analysez leur présence sociale et générez des stratégies de campagne basées sur les données — dans un seul tableau de bord."
+    }
+  },
+  "dashboard": {
+    "greeting": "Bonjour, {{name}} 👋",
+    "subtitle": "Voici ce qui se passe dans vos projets aujourd'hui.",
+    "kpi": {
+      "projects": "Projets",
+      "projectsDelta": "+2 cette semaine",
+      "competitors": "Concurrents suivis",
+      "competitorsDelta": "+5 cette semaine",
+      "posts": "Posts analysés",
+      "postsDelta": "+142 aujourd'hui",
+      "engagement": "Engagement moyen",
+      "engagementDelta": "+0,3 pts"
+    },
+    "charts": {
+      "engagement": "Engagement cette semaine",
+      "engagementSubtitle": "Likes par jour sur les concurrents suivis",
+      "mix": "Mix de contenu",
+      "mixSubtitle": "Répartition des formats par marque",
+      "posts": "Posts publiés par jour"
+    }
+  },
+  "projects": {
+    "title": "Projets",
+    "subtitle": "Idées business que vous suivez.",
+    "new": "Nouveau projet",
+    "empty": "Aucun projet pour le moment.",
+    "table": {
+      "idea": "Idée business",
+      "category": "Catégorie",
+      "status": "Statut",
+      "pipeline": "Pipeline"
+    },
+    "live": {
+      "title": "Démo de progression en direct",
+      "subtitle": "Émet de faux événements de scraping via Socket.IO — prouve que le pipeline WS fonctionne de bout en bout.",
+      "trigger": "Démarrer",
+      "placeholder": "ID du projet",
+      "idle": "Aucun job actif — cliquez sur Démarrer pour diffuser les événements.",
+      "starting": "Démarrage…",
+      "done": "Terminé"
+    }
+  },
+  "analytics": {
+    "title": "Analytique",
+    "subtitle": "Engagement et portée cross-concurrents.",
+    "followers": "Abonnés par marque",
+    "engagementRate": "Taux d'engagement (%) — 4 semaines"
+  },
+  "admin": {
+    "title": "Panneau d'administration",
+    "subtitle": "Gérer les utilisateurs, les rôles et la santé du système.",
+    "stats": {
+      "totalUsers": "Utilisateurs",
+      "activeUsers": "Actifs",
+      "admins": "Administrateurs",
+      "projects": "Projets"
+    },
+    "users": {
+      "title": "Utilisateurs",
+      "table": {
+        "name": "Nom",
+        "email": "Email",
+        "role": "Rôle",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "status": {
+        "active": "actif",
+        "disabled": "désactivé"
+      },
+      "toggle": {
+        "enable": "Activer",
+        "disable": "Désactiver"
+      },
+      "confirmDelete": "Supprimer {{email}} ?"
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "profile": "Profil",
+    "name": "Nom",
+    "email": "Email",
+    "role": "Rôle"
+  },
+  "errors": {
+    "forbidden": {
+      "title": "403 — Interdit",
+      "body": "Vous n'avez pas la permission de voir cette page.",
+      "back": "Retour au tableau de bord"
+    }
+  },
+  "footer": {
+    "system": "Agent d'Intelligence Marketing PFE",
+    "copyright": "© {{year}} {{system}}. Tous droits réservés.",
+    "builtBy": "Développé par"
+  },
+  "langs": {
+    "fr": "Français",
+    "ar": "العربية",
+    "en": "English"
+  }
+}

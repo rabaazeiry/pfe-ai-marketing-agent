@@ -11,6 +11,9 @@
   body {
     @apply bg-slate-50 text-slate-800 font-sans antialiased;
   }
+  html[lang='ar'] body {
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+  }
 }
 
 @layer components {
