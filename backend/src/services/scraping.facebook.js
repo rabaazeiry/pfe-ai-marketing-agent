@@ -57,15 +57,10 @@ async function scrapeFacebookGraphAPI(competitor) {
       verified: pageData.verification_status === 'blue_verified',
       posts
     };
-    
+
   } catch (error) {
     console.error(`         ❌ Erreur Graph API: ${error.message}`);
-    return {
-      followers: 0,
-      bio: '',
-      verified: false,
-      posts: []
-    };
+    throw error;
   }
 }
 

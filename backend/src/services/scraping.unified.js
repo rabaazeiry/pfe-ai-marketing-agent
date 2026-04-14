@@ -1,19 +1,21 @@
-// scraping.unified.COMPLETE.js
-// Service unifié avec scraping Instagram COMPLET
+// scraping.unified.js
+// Orchestrator — dispatches per-competitor scraping via Apify (primary path).
+// Apify returns data already shaped for SocialAnalysis; we persist it here so
+// the post('save') hook on SocialAnalysis recomputes Competitor.metrics.
 
-const { scrapeInstagramComplete } = require('./scraping.instagram.complete');
-const { scrapeFacebookGraphAPI } = require('./scraping.facebook');
+const apifyService = require('./apify.service');
 const Competitor = require('../models/Competitor.model');
+const SocialAnalysis = require('../models/SocialAnalysis.model');
 
-// ═══════════════════════════════════════════════════════════════════════════
-// FONCTION PRINCIPALE : Scraper tous les concurrents d'un projet
-// ═══════════════════════════════════════════════════════════════════════════
+const PLATFORM_URL_FIELD = {
+  instagram: 'instagram',
+  facebook: 'facebook',
+};
 
 async function scrapeProjectSocialMedia(projectId, competitorIds = null, platforms = ['instagram', 'facebook']) {
   try {
     console.log(`\n🚀 Scraping ${platforms.join(' + ')} pour projet ${projectId}...\n`);
 
-    // Récupérer les concurrents
     const query = { projectId, isActive: true };
     if (competitorIds && competitorIds.length > 0) {
       query._id = { $in: competitorIds };
@@ -33,47 +35,61 @@ async function scrapeProjectSocialMedia(projectId, competitorIds = null, platfor
         companyName: competitor.companyName,
         instagram: false,
         facebook: false,
-        error: null
+        error: null,
       };
+      const errors = [];
 
-      // Instagram COMPLET
-      if (platforms.includes('instagram') && competitor.socialMedia?.instagram?.username) {
-        try {
-          await scrapeInstagramComplete(competitor);
-          result.instagram = true;
-        } catch (error) {
-          console.error(`   ❌ Instagram: ${error.message}`);
-          result.error = error.message;
-          
-          // Marquer comme failed
-          await Competitor.findByIdAndUpdate(competitor._id, {
-            scrapingStatus: 'failed',
-            scrapingError: error.message
-          });
+      // Mark in_progress up front so a dead process leaves a visible trace
+      // instead of looking like nothing ever ran.
+      await Competitor.findByIdAndUpdate(competitor._id, {
+        scrapingStatus: 'in_progress',
+        lastScrapedAt: new Date(),
+      });
+
+      try {
+        for (const platform of platforms) {
+          const field = PLATFORM_URL_FIELD[platform];
+          const url = competitor.socialMedia?.[field]?.url;
+          if (!url) {
+            console.log(`      ⏭️  ${platform} skipped (no url on competitor.socialMedia.${field}.url)`);
+            continue;
+          }
+
+          console.log(`      ▶️  ${platform}: starting Apify run for ${url}`);
+          try {
+            const data = platform === 'instagram'
+              ? await apifyService.scrapeInstagram(url)
+              : await apifyService.scrapeFacebook(url);
+
+            await persistAnalysis(competitor, platform, data);
+            result[platform] = true;
+            console.log(`      ✅ ${platform} sauvegardé (${data.followers} followers, ${data.topPosts?.length || 0} top posts)`);
+          } catch (error) {
+            console.error(`      ❌ ${platform} failed: ${error.message}`);
+            if (error.stack) console.error(error.stack);
+            errors.push(`${platform}: ${error.message}`);
+          }
         }
+      } finally {
+        // ALWAYS write a terminal status, even if the for-loop throws synchronously
+        // (doesn't protect against process death — that's what `in_progress` above is for).
+        const anySuccess = result.instagram || result.facebook;
+        await Competitor.findByIdAndUpdate(competitor._id, {
+          scrapingStatus: anySuccess ? 'completed' : 'failed',
+          scrapingError: errors.join(' | '),
+          lastScrapedAt: new Date(),
+        });
       }
 
-      // Facebook
-      if (platforms.includes('facebook') && competitor.socialMedia?.facebook?.url) {
-        try {
-          await scrapeFacebook(competitor);
-          result.facebook = true;
-        } catch (error) {
-          console.error(`   ❌ Facebook: ${error.message}`);
-          if (!result.error) result.error = error.message;
-        }
-      }
-
+      if (errors.length > 0) result.error = errors.join(' | ');
       results.push(result);
-      
-      // Délai entre chaque concurrent (éviter rate limit)
+
       if (i < competitors.length - 1) {
         console.log('   ⏳ Pause 5 secondes...\n');
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
 
-    // Résumé
     const successCount = results.filter(r => r.instagram || r.facebook).length;
     const failedCount = results.length - successCount;
 
@@ -81,47 +97,56 @@ async function scrapeProjectSocialMedia(projectId, competitorIds = null, platfor
     console.log(`   Succès : ${successCount}/${results.length}`);
     console.log(`   Échecs : ${failedCount}/${results.length}\n`);
 
-    return {
-      success: true,
-      total: results.length,
-      successCount,
-      failedCount,
-      results
-    };
-
+    return { success: true, total: results.length, successCount, failedCount, results };
   } catch (error) {
     console.error('❌ Erreur globale scraping:', error);
     throw error;
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// FACEBOOK (garde l'ancien code)
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function scrapeFacebook(competitor) {
-  try {
-    const result = await scrapeFacebookGraphAPI(competitor);
-    
-    await Competitor.findByIdAndUpdate(competitor._id, {
-      'socialMedia.facebook.followers': result.followers,
-      'socialMedia.facebook.postsCount': result.posts.length,
-      lastScrapedAt: new Date(),
-      scrapingStatus: 'completed'
+// Upsert a SocialAnalysis doc using .save() so pre/post hooks fire
+// (post-save recomputes Competitor.metrics from all completed analyses).
+async function persistAnalysis(competitor, platform, data) {
+  let doc = await SocialAnalysis.findOne({ competitorId: competitor._id, platform });
+  if (!doc) {
+    doc = new SocialAnalysis({
+      projectId: competitor.projectId,
+      competitorId: competitor._id,
+      platform,
+      profileUrl: data.profileUrl,
     });
-
-    console.log(`      ✅ Facebook sauvegardé`);
-
-  } catch (error) {
-    console.error(`      ❌ ${error.message}`);
-    throw error;
   }
+
+  doc.profileUrl = data.profileUrl || doc.profileUrl;
+  doc.username = data.username || '';
+  doc.isVerified = !!data.isVerified;
+  doc.bio = (data.bio || '').slice(0, 500);
+  doc.followers = data.followers || 0;
+  doc.following = data.following || 0;
+  doc.totalPosts = data.totalPosts || 0;
+  doc.postsPerWeek = data.postsPerWeek || 0;
+  doc.avgLikes = data.avgLikes || 0;
+  doc.avgComments = data.avgComments || 0;
+  doc.avgShares = data.avgShares || 0;
+  doc.avgViews = data.avgViews || 0;
+  doc.engagementRate = data.engagementRate || 0;
+  doc.topPosts = data.topPosts || [];
+  doc.topHashtags = data.topHashtags || [];
+  doc.contentDistribution = data.contentDistribution || doc.contentDistribution;
+  doc.bestDays = data.bestDays || [];
+  doc.bestHours = data.bestHours || [];
+  doc.scrapingStatus = 'completed';
+  doc.lastScrapedAt = new Date();
+  doc.scrapingError = '';
+  doc.calculatePerformanceScore();
+
+  await doc.save();
+
+  await Competitor.findByIdAndUpdate(competitor._id, {
+    [`socialMedia.${platform}.followers`]: data.followers || 0,
+    [`socialMedia.${platform}.postsCount`]: data.totalPosts || 0,
+    [`socialMedia.${platform}.verified`]: !!data.isVerified,
+  });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// EXPORTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-module.exports = {
-  scrapeProjectSocialMedia
-};
+module.exports = { scrapeProjectSocialMedia };
