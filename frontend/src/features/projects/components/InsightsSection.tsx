@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   FiArrowDownRight,
@@ -28,7 +29,7 @@ export function InsightsSection({ insights, isLoading, isError }: Props) {
           <p className="text-xs text-slate-500">{t('projects.detail.insights.subtitle')}</p>
         </div>
         {insights?.isMocked && (
-          <span className="text-[10px] uppercase tracking-wide bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] uppercase tracking-wide bg-amber-50 text-amber-700 ring-1 ring-amber-200 px-2 py-0.5 rounded-full font-medium">
             {t('projects.detail.insights.previewBadge')}
           </span>
         )}
@@ -45,18 +46,21 @@ export function InsightsSection({ insights, isLoading, isError }: Props) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InsightCard
-            icon={<FiStar className="text-amber-500" />}
+            icon={<FiStar />}
+            iconTone="bg-amber-50 text-amber-600"
             label={t('projects.detail.insights.topOpportunity')}
             body={insights.topOpportunity}
           />
           <InsightCard
-            icon={<FiTarget className="text-brand-600" />}
+            icon={<FiTarget />}
+            iconTone="bg-brand-50 text-brand-600"
             label={t('projects.detail.insights.topCompetitorSignal')}
             body={insights.topCompetitorSignal}
           />
           <TrendCard insights={insights} />
           <InsightCard
-            icon={<FiZap className="text-emerald-600" />}
+            icon={<FiZap />}
+            iconTone="bg-emerald-50 text-emerald-600"
             label={t('projects.detail.insights.recommendedAction')}
             body={insights.recommendedAction}
           />
@@ -66,22 +70,25 @@ export function InsightsSection({ insights, isLoading, isError }: Props) {
   );
 }
 
-function InsightCard({
-  icon,
-  label,
-  body
-}: {
-  icon: React.ReactNode;
+type InsightCardProps = {
+  icon: ReactNode;
+  iconTone: string;
   label: string;
   body: string;
-}) {
+};
+
+function InsightCard({ icon, iconTone, label, body }: InsightCardProps) {
   return (
-    <div className="rounded-xl border border-slate-100 p-4">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
-        <span className="text-base">{icon}</span>
-        {label}
+    <div className="group rounded-xl border border-slate-100 bg-white p-4 transition hover:border-slate-200 hover:shadow-soft hover:-translate-y-0.5">
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${iconTone}`}>
+          {icon}
+        </span>
+        <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+          {label}
+        </span>
       </div>
-      <p className="mt-2 text-sm text-slate-700 leading-relaxed">{body}</p>
+      <p className="mt-3 text-sm text-slate-700 leading-relaxed">{body}</p>
     </div>
   );
 }
@@ -96,19 +103,29 @@ function TrendCard({ insights }: { insights: ProjectInsights }) {
       : direction === 'down'
         ? 'text-red-600'
         : 'text-slate-500';
+  const bubble =
+    direction === 'up'
+      ? 'bg-emerald-50 text-emerald-600'
+      : direction === 'down'
+        ? 'bg-red-50 text-red-600'
+        : 'bg-slate-100 text-slate-500';
   const sign = delta > 0 ? '+' : '';
 
   return (
-    <div className="rounded-xl border border-slate-100 p-4">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
-        <FiTrendingUp className="text-brand-600" />
-        {t('projects.detail.insights.engagementTrend')}
+    <div className="group rounded-xl border border-slate-100 bg-white p-4 transition hover:border-slate-200 hover:shadow-soft hover:-translate-y-0.5">
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${bubble}`}>
+          <FiTrendingUp />
+        </span>
+        <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+          {t('projects.detail.insights.engagementTrend')}
+        </span>
       </div>
-      <div className="mt-2 flex items-baseline gap-2">
+      <div className="mt-3 flex items-baseline gap-2">
         <span className={`text-2xl font-semibold ${tone}`}>
           {sign}
           {delta}
-          <small className="text-sm ms-1">pts</small>
+          <small className="text-sm ms-1 font-normal">pts</small>
         </span>
         <Icon className={`${tone} w-5 h-5`} />
       </div>

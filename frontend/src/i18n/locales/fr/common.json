@@ -77,6 +77,7 @@
     "subtitle": "Idées business que vous suivez.",
     "new": "Nouveau projet",
     "empty": "Aucun projet pour le moment.",
+    "emptyHint": "Créez votre premier projet pour découvrir des concurrents et générer des insights.",
     "table": {
       "idea": "Idée business",
       "category": "Catégorie",
@@ -91,6 +92,27 @@
       "idle": "Aucun job actif — cliquez sur Démarrer pour diffuser les événements.",
       "starting": "Démarrage…",
       "done": "Terminé"
+    },
+    "create": {
+      "title": "Nouveau projet",
+      "subtitle": "Décrivez l'idée business que vous souhaitez analyser.",
+      "submit": "Créer le projet",
+      "optional": "optionnel",
+      "fields": {
+        "idea": "Idée business",
+        "category": "Catégorie de marché"
+      },
+      "placeholders": {
+        "idea": "ex. Une box d'abonnement de pâtisseries tunisiennes livrée chaque semaine aux bureaux à Tunis",
+        "category": "ex. Pâtisserie artisanale"
+      },
+      "hints": {
+        "ideaMin": "Au moins {{min}} caractères."
+      },
+      "errors": {
+        "ideaTooShort": "L'idée business doit contenir au moins {{min}} caractères.",
+        "generic": "Impossible de créer le projet. Veuillez réessayer."
+      }
     },
     "detail": {
       "backToList": "Retour aux projets",
@@ -126,6 +148,7 @@
       "pipeline": {
         "title": "Progression du pipeline",
         "subtitle": "Où en est ce projet dans le flux d'analyse.",
+        "progress": "Progression",
         "steps": {
           "scraping": "Scraping",
           "cleaning": "Nettoyage",

@@ -24,9 +24,15 @@ export function PasswordForm() {
     (mutation.error as { response?: { data?: { message?: string } } } | null)?.response?.data
       ?.message ?? (mutation.isError ? t('settings.errors.generic') : null);
 
+  const canSubmit =
+    !mutation.isPending &&
+    Boolean(currentPassword) &&
+    Boolean(newPassword) &&
+    Boolean(confirmPassword);
+
   return (
     <form
-      className="card space-y-4"
+      className="card space-y-5"
       onSubmit={(e) => {
         e.preventDefault();
         setLocalError(null);
@@ -44,21 +50,20 @@ export function PasswordForm() {
           return;
         }
 
-        mutation.mutate(
-          { currentPassword, newPassword },
-          { onSuccess: reset }
-        );
+        mutation.mutate({ currentPassword, newPassword }, { onSuccess: reset });
       }}
     >
       <div>
-        <h3 className="font-semibold">{t('settings.password.title')}</h3>
+        <h3 className="font-semibold text-slate-900">{t('settings.password.title')}</h3>
         <p className="text-sm text-slate-500 mt-1">{t('settings.password.subtitle')}</p>
       </div>
 
       <label className="block">
-        <span className="text-sm text-slate-600">{t('settings.password.current')}</span>
+        <span className="block text-xs font-medium text-slate-600 mb-1">
+          {t('settings.password.current')}
+        </span>
         <input
-          className="input mt-1"
+          className="input"
           type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
@@ -67,11 +72,13 @@ export function PasswordForm() {
         />
       </label>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="block">
-          <span className="text-sm text-slate-600">{t('settings.password.new')}</span>
+          <span className="block text-xs font-medium text-slate-600 mb-1">
+            {t('settings.password.new')}
+          </span>
           <input
-            className="input mt-1"
+            className="input"
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -81,9 +88,11 @@ export function PasswordForm() {
           />
         </label>
         <label className="block">
-          <span className="text-sm text-slate-600">{t('settings.password.confirm')}</span>
+          <span className="block text-xs font-medium text-slate-600 mb-1">
+            {t('settings.password.confirm')}
+          </span>
           <input
-            className="input mt-1"
+            className="input"
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -95,7 +104,7 @@ export function PasswordForm() {
       </div>
 
       {(localError || serverError) && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {localError ?? serverError}
         </div>
       )}
@@ -106,12 +115,8 @@ export function PasswordForm() {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={mutation.isPending || !currentPassword || !newPassword || !confirmPassword}
-        >
+      <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+        <button type="submit" className="btn-primary" disabled={!canSubmit}>
           {mutation.isPending ? t('common.loading') : t('settings.password.submit')}
         </button>
       </div>

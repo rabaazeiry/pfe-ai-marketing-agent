@@ -29,9 +29,16 @@ export function ProfileForm() {
     (mutation.error as { response?: { data?: { message?: string } } } | null)?.response?.data
       ?.message ?? t('settings.errors.generic');
 
+  const handleReset = () => {
+    if (!user) return;
+    setFirstName(user.firstName);
+    setLastName(user.lastName);
+    setEmail(user.email);
+  };
+
   return (
     <form
-      className="card space-y-4"
+      className="card space-y-5"
       onSubmit={(e) => {
         e.preventDefault();
         if (!isDirty || mutation.isPending) return;
@@ -43,15 +50,17 @@ export function ProfileForm() {
       }}
     >
       <div>
-        <h3 className="font-semibold">{t('settings.profile')}</h3>
+        <h3 className="font-semibold text-slate-900">{t('settings.profile')}</h3>
         <p className="text-sm text-slate-500 mt-1">{t('settings.profileSubtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="block">
-          <span className="text-sm text-slate-600">{t('auth.firstName')}</span>
+          <span className="block text-xs font-medium text-slate-600 mb-1">
+            {t('auth.firstName')}
+          </span>
           <input
-            className="input mt-1"
+            className="input"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             required
@@ -59,9 +68,11 @@ export function ProfileForm() {
           />
         </label>
         <label className="block">
-          <span className="text-sm text-slate-600">{t('auth.lastName')}</span>
+          <span className="block text-xs font-medium text-slate-600 mb-1">
+            {t('auth.lastName')}
+          </span>
           <input
-            className="input mt-1"
+            className="input"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             required
@@ -71,9 +82,9 @@ export function ProfileForm() {
       </div>
 
       <label className="block">
-        <span className="text-sm text-slate-600">{t('settings.email')}</span>
+        <span className="block text-xs font-medium text-slate-600 mb-1">{t('settings.email')}</span>
         <input
-          className="input mt-1"
+          className="input"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -83,7 +94,7 @@ export function ProfileForm() {
       </label>
 
       {mutation.isError && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {errorMessage}
         </div>
       )}
@@ -94,12 +105,16 @@ export function ProfileForm() {
         </div>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
         <button
-          type="submit"
-          className="btn-primary"
+          type="button"
+          className="btn-ghost"
+          onClick={handleReset}
           disabled={!isDirty || mutation.isPending}
         >
+          {t('common.cancel')}
+        </button>
+        <button type="submit" className="btn-primary" disabled={!isDirty || mutation.isPending}>
           {mutation.isPending ? t('common.loading') : t('common.save')}
         </button>
       </div>

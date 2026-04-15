@@ -77,6 +77,7 @@
     "subtitle": "Business ideas you're tracking.",
     "new": "New project",
     "empty": "No projects yet.",
+    "emptyHint": "Create your first project to start discovering competitors and generating insights.",
     "table": {
       "idea": "Business idea",
       "category": "Category",
@@ -91,6 +92,27 @@
       "idle": "No active job — click Trigger to stream events.",
       "starting": "Starting…",
       "done": "Done"
+    },
+    "create": {
+      "title": "New project",
+      "subtitle": "Describe the business idea you want to analyze.",
+      "submit": "Create project",
+      "optional": "optional",
+      "fields": {
+        "idea": "Business idea",
+        "category": "Market category"
+      },
+      "placeholders": {
+        "idea": "e.g. A subscription box of Tunisian pastries delivered weekly to offices in Tunis",
+        "category": "e.g. Artisan pastries"
+      },
+      "hints": {
+        "ideaMin": "At least {{min}} characters."
+      },
+      "errors": {
+        "ideaTooShort": "Business idea must be at least {{min}} characters.",
+        "generic": "Couldn't create the project. Please try again."
+      }
     },
     "detail": {
       "backToList": "Back to projects",
@@ -126,6 +148,7 @@
       "pipeline": {
         "title": "Pipeline progress",
         "subtitle": "Where this project is in the analysis flow.",
+        "progress": "Progress",
         "steps": {
           "scraping": "Scraping",
           "cleaning": "Cleaning",
