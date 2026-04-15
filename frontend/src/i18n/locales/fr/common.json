@@ -130,10 +130,28 @@
   },
   "settings": {
     "title": "Paramètres",
+    "account": "Compte",
     "profile": "Profil",
+    "profileSubtitle": "Mettez à jour vos informations personnelles.",
+    "profileSaved": "Profil mis à jour avec succès.",
     "name": "Nom",
     "email": "Email",
-    "role": "Rôle"
+    "role": "Rôle",
+    "password": {
+      "title": "Changer le mot de passe",
+      "subtitle": "Utilisez au moins 6 caractères. Vous resterez connecté.",
+      "current": "Mot de passe actuel",
+      "new": "Nouveau mot de passe",
+      "confirm": "Confirmer le nouveau mot de passe",
+      "submit": "Mettre à jour",
+      "updated": "Mot de passe mis à jour avec succès."
+    },
+    "errors": {
+      "generic": "Une erreur est survenue. Veuillez réessayer.",
+      "passwordMismatch": "Les nouveaux mots de passe ne correspondent pas.",
+      "passwordTooShort": "Le mot de passe doit contenir au moins {{min}} caractères.",
+      "passwordSame": "Le nouveau mot de passe doit être différent de l'actuel."
+    }
   },
   "errors": {
     "forbidden": {

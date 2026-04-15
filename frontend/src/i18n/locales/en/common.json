@@ -130,10 +130,28 @@
   },
   "settings": {
     "title": "Settings",
+    "account": "Account",
     "profile": "Profile",
+    "profileSubtitle": "Update your personal information.",
+    "profileSaved": "Profile updated successfully.",
     "name": "Name",
     "email": "Email",
-    "role": "Role"
+    "role": "Role",
+    "password": {
+      "title": "Change password",
+      "subtitle": "Use at least 6 characters. You'll stay signed in.",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "submit": "Update password",
+      "updated": "Password updated successfully."
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "passwordMismatch": "New passwords do not match.",
+      "passwordTooShort": "Password must be at least {{min}} characters.",
+      "passwordSame": "New password must differ from the current one."
+    }
   },
   "errors": {
     "forbidden": {
