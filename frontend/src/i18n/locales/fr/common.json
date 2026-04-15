@@ -91,6 +91,65 @@
       "idle": "Aucun job actif — cliquez sur Démarrer pour diffuser les événements.",
       "starting": "Démarrage…",
       "done": "Terminé"
+    },
+    "detail": {
+      "backToList": "Retour aux projets",
+      "category": "Catégorie",
+      "createdAt": "Créé le",
+      "competitorsCount": "{{count}} concurrents suivis",
+      "status": {
+        "draft": "Brouillon",
+        "active": "Actif",
+        "completed": "Terminé",
+        "archived": "Archivé"
+      },
+      "errors": {
+        "title": "Une erreur est survenue",
+        "project": "Impossible de charger ce projet. Réessayez dans un instant.",
+        "competitors": "Impossible de charger les concurrents de ce projet.",
+        "insights": "Impossible de charger les insights. L'analyse n'est peut-être pas prête."
+      },
+      "competitors": {
+        "title": "Concurrents",
+        "subtitle": "Marques suivies pour ce projet.",
+        "empty": "Aucun concurrent pour l'instant",
+        "emptyHint": "Les concurrents apparaîtront ici une fois la découverte terminée.",
+        "total": "{{count}} au total",
+        "inactive": "Inactif",
+        "scraping": {
+          "pending": "En attente",
+          "in_progress": "Scraping…",
+          "completed": "Scrapé",
+          "failed": "Échec"
+        }
+      },
+      "pipeline": {
+        "title": "Progression du pipeline",
+        "subtitle": "Où en est ce projet dans le flux d'analyse.",
+        "steps": {
+          "scraping": "Scraping",
+          "cleaning": "Nettoyage",
+          "classification": "Classification",
+          "analysis": "Analyse",
+          "insights": "Insights"
+        },
+        "state": {
+          "done": "terminé",
+          "running": "en cours",
+          "pending": "en attente",
+          "failed": "échec"
+        }
+      },
+      "insights": {
+        "title": "Insights",
+        "subtitle": "Signaux clés issus des données concurrents.",
+        "previewBadge": "Aperçu",
+        "empty": "Aucun insight pour l'instant",
+        "topOpportunity": "Meilleure opportunité",
+        "topCompetitorSignal": "Signal concurrent fort",
+        "engagementTrend": "Tendance d'engagement",
+        "recommendedAction": "Action recommandée"
+      }
     }
   },
   "analytics": {

@@ -9,6 +9,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
+import { ProjectDetailPage } from '@/pages/ProjectDetailPage';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { AdminPage } from '@/pages/AdminPage';
@@ -38,7 +39,8 @@ const authedLayout = createRoute({
 });
 
 const dashboardRoute   = createRoute({ getParentRoute: () => authedLayout, path: '/', component: DashboardPage });
-const projectsRoute    = createRoute({ getParentRoute: () => authedLayout, path: '/projects', component: ProjectsPage });
+const projectsRoute       = createRoute({ getParentRoute: () => authedLayout, path: '/projects', component: ProjectsPage });
+const projectDetailRoute  = createRoute({ getParentRoute: () => authedLayout, path: '/projects/$projectId', component: ProjectDetailPage });
 const analyticsRoute   = createRoute({ getParentRoute: () => authedLayout, path: '/analytics', component: AnalyticsPage });
 const settingsRoute    = createRoute({ getParentRoute: () => authedLayout, path: '/settings', component: SettingsPage });
 const forbiddenRoute   = createRoute({ getParentRoute: () => authedLayout, path: '/forbidden', component: ForbiddenPage });
@@ -58,6 +60,7 @@ const routeTree = rootRoute.addChildren([
   authedLayout.addChildren([
     dashboardRoute,
     projectsRoute,
+    projectDetailRoute,
     analyticsRoute,
     settingsRoute,
     forbiddenRoute,

@@ -91,6 +91,65 @@
       "idle": "No active job — click Trigger to stream events.",
       "starting": "Starting…",
       "done": "Done"
+    },
+    "detail": {
+      "backToList": "Back to projects",
+      "category": "Category",
+      "createdAt": "Created",
+      "competitorsCount": "{{count}} competitors tracked",
+      "status": {
+        "draft": "Draft",
+        "active": "Active",
+        "completed": "Completed",
+        "archived": "Archived"
+      },
+      "errors": {
+        "title": "Something went wrong",
+        "project": "We couldn't load this project. Try again in a moment.",
+        "competitors": "We couldn't load competitors for this project.",
+        "insights": "We couldn't load insights. The analysis may not be ready yet."
+      },
+      "competitors": {
+        "title": "Competitors",
+        "subtitle": "Brands monitored for this project.",
+        "empty": "No competitors yet",
+        "emptyHint": "Competitors appear here once discovery finishes.",
+        "total": "{{count}} total",
+        "inactive": "Inactive",
+        "scraping": {
+          "pending": "Pending",
+          "in_progress": "Scraping…",
+          "completed": "Scraped",
+          "failed": "Failed"
+        }
+      },
+      "pipeline": {
+        "title": "Pipeline progress",
+        "subtitle": "Where this project is in the analysis flow.",
+        "steps": {
+          "scraping": "Scraping",
+          "cleaning": "Cleaning",
+          "classification": "Classification",
+          "analysis": "Analysis",
+          "insights": "Insights"
+        },
+        "state": {
+          "done": "done",
+          "running": "running",
+          "pending": "pending",
+          "failed": "failed"
+        }
+      },
+      "insights": {
+        "title": "Insights",
+        "subtitle": "Key signals derived from competitor data.",
+        "previewBadge": "Preview",
+        "empty": "No insights yet",
+        "topOpportunity": "Top opportunity",
+        "topCompetitorSignal": "Top competitor signal",
+        "engagementTrend": "Engagement trend",
+        "recommendedAction": "Recommended action"
+      }
     }
   },
   "analytics": {

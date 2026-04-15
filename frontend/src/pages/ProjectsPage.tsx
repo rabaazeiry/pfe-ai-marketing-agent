@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from '@tanstack/react-router';
 import { FiPlus, FiZap } from 'react-icons/fi';
 import { listProjects, triggerWsDemo } from '@/features/projects/api';
 import { useSocket } from '@/hooks/useSocket';
@@ -9,6 +10,7 @@ import { WS_EVENTS, type ScrapingProgress } from '@/lib/ws/events';
 export function ProjectsPage() {
   const { t } = useTranslation();
   const { data: projects, isLoading } = useQuery({ queryKey: ['projects'], queryFn: listProjects });
+  const navigate = useNavigate();
   const [demoProjectId, setDemoProjectId] = useState<string>('demo');
   const [progress, setProgress] = useState<{ pct: number; message: string } | null>(null);
   const { on } = useSocket(demoProjectId);
@@ -89,7 +91,11 @@ export function ProjectsPage() {
             </thead>
             <tbody>
               {projects.map((p) => (
-                <tr key={p._id} className="border-b last:border-0 hover:bg-slate-50">
+                <tr
+                  key={p._id}
+                  className="border-b last:border-0 hover:bg-slate-50 cursor-pointer"
+                  onClick={() => navigate({ to: '/projects/$projectId', params: { projectId: p._id } })}
+                >
                   <td className="py-3 font-medium text-slate-800">{p.businessIdea}</td>
                   <td className="text-slate-600">{p.marketCategory ?? '—'}</td>
                   <td className="text-slate-600">{p.status ?? '—'}</td>

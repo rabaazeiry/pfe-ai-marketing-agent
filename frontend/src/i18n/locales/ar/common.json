@@ -91,6 +91,65 @@
       "idle": "لا توجد مهمة نشطة — اضغط تشغيل لبث الأحداث.",
       "starting": "بدء…",
       "done": "تم"
+    },
+    "detail": {
+      "backToList": "العودة إلى المشاريع",
+      "category": "الفئة",
+      "createdAt": "تاريخ الإنشاء",
+      "competitorsCount": "{{count}} منافسون متابَعون",
+      "status": {
+        "draft": "مسودة",
+        "active": "نشِط",
+        "completed": "مكتمل",
+        "archived": "مؤرشف"
+      },
+      "errors": {
+        "title": "حدث خطأ ما",
+        "project": "تعذّر تحميل هذا المشروع. حاول مجدداً بعد قليل.",
+        "competitors": "تعذّر تحميل المنافسين لهذا المشروع.",
+        "insights": "تعذّر تحميل الرؤى. قد لا يكون التحليل جاهزاً بعد."
+      },
+      "competitors": {
+        "title": "المنافسون",
+        "subtitle": "العلامات التجارية المتابَعة لهذا المشروع.",
+        "empty": "لا يوجد منافسون بعد",
+        "emptyHint": "سيظهر المنافسون هنا بمجرد اكتمال الاكتشاف.",
+        "total": "{{count}} إجمالاً",
+        "inactive": "غير نشط",
+        "scraping": {
+          "pending": "قيد الانتظار",
+          "in_progress": "جارٍ الكشط…",
+          "completed": "تم الكشط",
+          "failed": "فشل"
+        }
+      },
+      "pipeline": {
+        "title": "تقدّم الخط",
+        "subtitle": "مرحلة هذا المشروع ضمن تدفق التحليل.",
+        "steps": {
+          "scraping": "الكشط",
+          "cleaning": "التنظيف",
+          "classification": "التصنيف",
+          "analysis": "التحليل",
+          "insights": "الرؤى"
+        },
+        "state": {
+          "done": "مكتمل",
+          "running": "جارٍ",
+          "pending": "قيد الانتظار",
+          "failed": "فشل"
+        }
+      },
+      "insights": {
+        "title": "الرؤى",
+        "subtitle": "إشارات رئيسية مستخرجة من بيانات المنافسين.",
+        "previewBadge": "معاينة",
+        "empty": "لا توجد رؤى بعد",
+        "topOpportunity": "أفضل فرصة",
+        "topCompetitorSignal": "أقوى إشارة منافس",
+        "engagementTrend": "اتجاه التفاعل",
+        "recommendedAction": "إجراء موصى به"
+      }
     }
   },
   "analytics": {
