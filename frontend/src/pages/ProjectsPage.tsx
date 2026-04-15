@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import axios from 'axios';
-import { FiChevronRight, FiFolderPlus, FiPlus, FiZap } from 'react-icons/fi';
+import { FiAlertTriangle, FiChevronRight, FiFolderPlus, FiPlus, FiZap } from 'react-icons/fi';
 import { listProjects, triggerWsDemo } from '@/features/projects/api';
 import { NewProjectModal } from '@/features/projects/components/NewProjectModal';
 import { useCreateProject } from '@/features/projects/useCreateProject';
@@ -14,10 +14,19 @@ import {
 } from '@/features/projects/statusBadge';
 import { useSocket } from '@/hooks/useSocket';
 import { WS_EVENTS, type ScrapingProgress } from '@/lib/ws/events';
+import { Skeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 
 export function ProjectsPage() {
   const { t } = useTranslation();
-  const { data: projects, isLoading } = useQuery({ queryKey: ['projects'], queryFn: listProjects });
+  const toast = useToast();
+  const {
+    data: projects,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching
+  } = useQuery({ queryKey: ['projects'], queryFn: listProjects });
   const navigate = useNavigate();
   const [demoProjectId, setDemoProjectId] = useState<string>('demo');
   const [progress, setProgress] = useState<{ pct: number; message: string } | null>(null);
@@ -94,9 +103,23 @@ export function ProjectsPage() {
 
       <div className="card p-0 overflow-hidden">
         {isLoading ? (
-          <div className="py-16 flex flex-col items-center gap-3 text-sm text-slate-500">
-            <div className="h-8 w-8 rounded-full border-2 border-slate-200 border-t-brand-600 animate-spin" />
-            <span>{t('common.loading')}</span>
+          <ProjectsTableSkeleton />
+        ) : isError ? (
+          <div className="py-14 px-6 flex flex-col items-center text-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
+              <FiAlertTriangle className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-800">{t('projects.errors.loadTitle')}</div>
+              <p className="mt-1 text-xs text-slate-500 max-w-sm">{t('projects.errors.loadBody')}</p>
+            </div>
+            <button
+              className="btn-ghost"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+            >
+              {isRefetching ? t('common.loading') : t('common.retry')}
+            </button>
           </div>
         ) : !projects || projects.length === 0 ? (
           <div className="py-14 px-6 flex flex-col items-center text-center gap-3">
@@ -197,18 +220,50 @@ export function ProjectsPage() {
         onSubmit={async (values) => {
           setCreateError(null);
           try {
-            await createProjectMutation.mutateAsync(values);
+            const project = await createProjectMutation.mutateAsync(values);
             setIsModalOpen(false);
+            toast.success(
+              t('projects.create.toasts.successBody', {
+                name: project.businessIdea.slice(0, 60)
+              }),
+              t('projects.create.toasts.successTitle')
+            );
           } catch (err) {
             const fallback = t('projects.create.errors.generic');
-            if (axios.isAxiosError(err)) {
-              setCreateError(err.response?.data?.message ?? fallback);
-            } else {
-              setCreateError(fallback);
-            }
+            const message = axios.isAxiosError(err)
+              ? err.response?.data?.message ?? fallback
+              : fallback;
+            setCreateError(message);
+            toast.error(message, t('projects.create.toasts.errorTitle'));
           }
         }}
       />
+    </div>
+  );
+}
+
+function ProjectsTableSkeleton() {
+  const rows = 5;
+  return (
+    <div className="animate-fade-in">
+      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/70 py-3 px-5">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-28" />
+      </div>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-[1fr_140px_120px_140px_24px] items-center gap-3 border-b border-slate-100 last:border-0 py-4 px-5"
+        >
+          <Skeleton className="h-3 w-3/4" />
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+          <Skeleton className="h-3 w-3 rounded-full" />
+        </div>
+      ))}
     </div>
   );
 }

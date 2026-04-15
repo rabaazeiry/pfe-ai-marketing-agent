@@ -18,17 +18,17 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
   }
-  .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700; }
+  .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-sm hover:shadow; }
   .btn-ghost   { @apply btn bg-transparent text-slate-700 hover:bg-slate-100; }
-  .btn-danger  { @apply btn bg-red-600 text-white hover:bg-red-700; }
+  .btn-danger  { @apply btn bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow; }
 
   .card {
     @apply bg-white rounded-xl shadow-soft border border-slate-100 p-5;
   }
   .input {
-    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100;
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed;
   }
   .badge {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;

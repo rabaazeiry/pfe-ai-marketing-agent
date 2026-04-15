@@ -18,6 +18,7 @@
     "yes": "Oui",
     "no": "Non",
     "close": "Fermer",
+    "retry": "Réessayer",
     "logout": "Déconnexion",
     "notifications": "Notifications",
     "menu": "Menu",
@@ -78,6 +79,10 @@
     "new": "Nouveau projet",
     "empty": "Aucun projet pour le moment.",
     "emptyHint": "Créez votre premier projet pour découvrir des concurrents et générer des insights.",
+    "errors": {
+      "loadTitle": "Impossible de charger les projets",
+      "loadBody": "Le serveur est injoignable. Veuillez réessayer."
+    },
     "table": {
       "idea": "Idée business",
       "category": "Catégorie",
@@ -112,6 +117,11 @@
       "errors": {
         "ideaTooShort": "L'idée business doit contenir au moins {{min}} caractères.",
         "generic": "Impossible de créer le projet. Veuillez réessayer."
+      },
+      "toasts": {
+        "successTitle": "Projet créé",
+        "successBody": "{{name}} est prêt.",
+        "errorTitle": "Échec de la création"
       }
     },
     "detail": {

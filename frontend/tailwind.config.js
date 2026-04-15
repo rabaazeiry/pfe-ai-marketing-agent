@@ -24,6 +24,25 @@ export default {
       },
       boxShadow: {
         soft: '0 6px 24px -12px rgba(16, 24, 40, 0.12)'
+      },
+      keyframes: {
+        'toast-in': {
+          '0%': { opacity: '0', transform: 'translateY(8px) scale(0.98)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' }
+        },
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' }
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' }
+        }
+      },
+      animation: {
+        'toast-in': 'toast-in 180ms ease-out',
+        'fade-in': 'fade-in 160ms ease-out',
+        shimmer: 'shimmer 1.4s linear infinite'
       }
     }
   },

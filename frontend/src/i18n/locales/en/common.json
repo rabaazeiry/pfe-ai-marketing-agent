@@ -18,6 +18,7 @@
     "yes": "Yes",
     "no": "No",
     "close": "Close",
+    "retry": "Retry",
     "logout": "Log out",
     "notifications": "Notifications",
     "menu": "Menu",
@@ -78,6 +79,10 @@
     "new": "New project",
     "empty": "No projects yet.",
     "emptyHint": "Create your first project to start discovering competitors and generating insights.",
+    "errors": {
+      "loadTitle": "Couldn't load projects",
+      "loadBody": "We couldn't reach the server. Please try again."
+    },
     "table": {
       "idea": "Business idea",
       "category": "Category",
@@ -112,6 +117,11 @@
       "errors": {
         "ideaTooShort": "Business idea must be at least {{min}} characters.",
         "generic": "Couldn't create the project. Please try again."
+      },
+      "toasts": {
+        "successTitle": "Project created",
+        "successBody": "{{name}} is ready.",
+        "errorTitle": "Creation failed"
       }
     },
     "detail": {

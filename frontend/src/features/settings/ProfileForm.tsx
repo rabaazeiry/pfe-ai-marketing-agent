@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FiCheckCircle } from 'react-icons/fi';
 import { useAuthStore } from '@/stores/auth.store';
+import { useToast } from '@/components/Toast';
 import { useUpdateProfile } from './hooks';
 
 export function ProfileForm() {
   const { t } = useTranslation();
+  const toast = useToast();
   const user = useAuthStore((s) => s.user);
   const mutation = useUpdateProfile();
 
@@ -42,11 +44,24 @@ export function ProfileForm() {
       onSubmit={(e) => {
         e.preventDefault();
         if (!isDirty || mutation.isPending) return;
-        mutation.mutate({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email.trim()
-        });
+        mutation.mutate(
+          {
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            email: email.trim()
+          },
+          {
+            onSuccess: () => {
+              toast.success(t('settings.profileSaved'));
+            },
+            onError: (err) => {
+              const msg =
+                (err as { response?: { data?: { message?: string } } })?.response?.data
+                  ?.message ?? t('settings.errors.generic');
+              toast.error(msg);
+            }
+          }
+        );
       }}
     >
       <div>

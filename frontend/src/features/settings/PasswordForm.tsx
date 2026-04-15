@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FiCheckCircle } from 'react-icons/fi';
+import { useToast } from '@/components/Toast';
 import { useChangePassword } from './hooks';
 
 const MIN_LENGTH = 6;
 
 export function PasswordForm() {
   const { t } = useTranslation();
+  const toast = useToast();
   const mutation = useChangePassword();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -50,7 +52,21 @@ export function PasswordForm() {
           return;
         }
 
-        mutation.mutate({ currentPassword, newPassword }, { onSuccess: reset });
+        mutation.mutate(
+          { currentPassword, newPassword },
+          {
+            onSuccess: () => {
+              reset();
+              toast.success(t('settings.password.updated'));
+            },
+            onError: (err) => {
+              const msg =
+                (err as { response?: { data?: { message?: string } } })?.response?.data
+                  ?.message ?? t('settings.errors.generic');
+              toast.error(msg);
+            }
+          }
+        );
       }}
     >
       <div>

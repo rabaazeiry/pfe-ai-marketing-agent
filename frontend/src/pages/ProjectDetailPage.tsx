@@ -2,11 +2,12 @@ import { useEffect } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import { FiAlertTriangle } from 'react-icons/fi';
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { CompetitorsSection } from '@/features/projects/components/CompetitorsSection';
 import { PipelineSection } from '@/features/projects/components/PipelineSection';
 import { InsightsSection } from '@/features/projects/components/InsightsSection';
-import { StateView } from '@/features/projects/components/StateView';
+import { ProjectDetailSkeleton } from '@/features/projects/components/ProjectDetailSkeleton';
 import {
   useProjectCompetitors,
   useProjectDetail,
@@ -26,19 +27,29 @@ export function ProjectDetailPage() {
   useLivePipelineRefresh(projectId);
 
   if (project.isLoading) {
-    return (
-      <div className="card">
-        <StateView variant="loading" title={t('common.loading')} />
-      </div>
-    );
+    return <ProjectDetailSkeleton />;
   }
 
   if (project.isError || !project.data) {
     return (
       <div className="card">
-        <StateView variant="error" title={t('projects.detail.errors.title')}>
-          {t('projects.detail.errors.project')}
-        </StateView>
+        <div className="py-12 px-6 flex flex-col items-center text-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
+            <FiAlertTriangle className="h-6 w-6" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-slate-800">{t('projects.detail.errors.title')}</div>
+            <p className="mt-1 text-xs text-slate-500 max-w-sm">{t('projects.detail.errors.project')}</p>
+          </div>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => project.refetch()}
+            disabled={project.isFetching}
+          >
+            {project.isFetching ? t('common.loading') : t('common.retry')}
+          </button>
+        </div>
       </div>
     );
   }

@@ -5,22 +5,26 @@ type StateViewProps = {
   variant: 'loading' | 'empty' | 'error';
   title?: string;
   children?: ReactNode;
+  action?: ReactNode;
 };
 
-export function StateView({ variant, title, children }: StateViewProps) {
+const BUBBLE: Record<StateViewProps['variant'], string> = {
+  loading: 'bg-brand-50 text-brand-600',
+  empty: 'bg-slate-100 text-slate-500',
+  error: 'bg-red-50 text-red-600'
+};
+
+export function StateView({ variant, title, children, action }: StateViewProps) {
   const Icon = variant === 'loading' ? FiLoader : variant === 'empty' ? FiInbox : FiAlertTriangle;
-  const tone =
-    variant === 'error'
-      ? 'text-red-600'
-      : variant === 'loading'
-        ? 'text-brand-600'
-        : 'text-slate-400';
 
   return (
-    <div className="flex flex-col items-center justify-center text-center py-10 gap-2">
-      <Icon className={`w-6 h-6 ${tone} ${variant === 'loading' ? 'animate-spin' : ''}`} />
-      {title && <div className="text-sm font-medium text-slate-700">{title}</div>}
-      {children && <div className="text-xs text-slate-500 max-w-sm">{children}</div>}
+    <div className="flex flex-col items-center justify-center text-center py-10 gap-3 animate-fade-in">
+      <span className={`inline-flex h-12 w-12 items-center justify-center rounded-full ${BUBBLE[variant]}`}>
+        <Icon className={`w-6 h-6 ${variant === 'loading' ? 'animate-spin' : ''}`} />
+      </span>
+      {title && <div className="text-sm font-semibold text-slate-800">{title}</div>}
+      {children && <div className="text-xs text-slate-500 max-w-sm leading-relaxed">{children}</div>}
+      {action && <div className="pt-1">{action}</div>}
     </div>
   );
 }
