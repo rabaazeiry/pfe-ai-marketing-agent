@@ -22,6 +22,15 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from adapters.node_contract import (
+    OrchestratedScrapeRequest,
+    OrchestratedScrapeResponse,
+)
+from core.orchestrator import Orchestrator
+from core.types import ScrapeJob
+from mappers.competitor_mapper import to_social_handle_updates
+from mappers.social_analysis_mapper import to_social_analysis_payload
+
 load_dotenv()
 
 APP_NAME = "pfe-scraper"
@@ -29,6 +38,7 @@ APP_VERSION = "0.1.0"
 USE_BROWSER = os.getenv("SCRAPER_USE_BROWSER", "false").lower() in {"1", "true", "yes"}
 
 app = FastAPI(title=APP_NAME, version=APP_VERSION)
+orchestrator = Orchestrator()
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────
@@ -97,6 +107,32 @@ async def scrape(req: ScrapeRequest) -> ScrapeResponse:
         extracted=extracted,
         fetched_at=datetime.utcnow().isoformat() + "Z",
         mode=mode,
+    )
+
+
+# ─── Sprint 10: orchestrated scrape ──────────────────────────────────────────
+
+@app.post("/v2/scrape", response_model=OrchestratedScrapeResponse)
+async def scrape_v2(req: OrchestratedScrapeRequest) -> OrchestratedScrapeResponse:
+    """Orchestrated scrape: picks the best method (API → HTTP → brute),
+    cleans and normalizes the output, and returns payloads shaped for the
+    existing Competitor and SocialAnalysis models. No Mongo writes happen
+    here — the Node backend persists the response.
+    """
+    job = ScrapeJob(
+        project_id=req.project_id,
+        competitor_id=req.competitor_id,
+        platform=req.platform,
+        target=req.target,
+        force_method=req.force_method,
+    )
+    result = await orchestrator.run(job)
+    return OrchestratedScrapeResponse(
+        competitor_id=req.competitor_id,
+        method_used=result.method_used,
+        posts_count=len(result.posts),
+        social_analysis=to_social_analysis_payload(req.competitor_id, result.posts),
+        competitor_update=to_social_handle_updates(result.posts),
     )
 
 
