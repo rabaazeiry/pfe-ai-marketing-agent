@@ -18,7 +18,8 @@
       "Bash(python -c \"import ast; ast.parse\\(open\\(r'C:/Users/Client/Desktop/pfe_marketing_agent11/backend/scraper/scraper_service.py'\\).read\\(\\)\\); print\\('scraper_service.py OK'\\)\")",
       "Bash(powershell:*)",
       "Bash(node -e \"require\\('./src/app'\\); require\\('./src/routes/webhooks.routes'\\); require\\('./src/services/n8n.notify'\\); console.log\\('OK'\\)\")",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(uv run *)"
     ]
   }
 }

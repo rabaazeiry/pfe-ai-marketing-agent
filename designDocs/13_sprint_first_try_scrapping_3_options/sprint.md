@@ -248,7 +248,8 @@ this is a result form claude chat (you in web LLM mode)
 2. breakdown in feasable tasks
 3. try to refactor or implement as microservices the three options,
 4. report your work in  md (enriched with mermaid while possible) file and update the plan
+5. make agentic workflow in n8n (I will test in local so show me how with out interfering the code base)
 
 NB: 
 - you are free to plan to sub-sprints
-- resolve the problem with you genuine reflection
+- resolve the problem with you genuine reflection (maybe n8n agentic automation workflow)
