@@ -68,6 +68,7 @@ export function ProjectDetailPage() {
       </div>
 
       <CompetitorsSection
+        projectId={projectId}
         competitors={competitors.data}
         isLoading={competitors.isLoading}
         isError={competitors.isError}

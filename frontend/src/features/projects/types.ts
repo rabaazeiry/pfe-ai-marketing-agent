@@ -74,5 +74,4 @@ export type ProjectInsights = {
   };
   recommendedAction: string;
   generatedAt?: string;
-  isMocked?: boolean;
 };

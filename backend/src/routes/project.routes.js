@@ -8,7 +8,8 @@ const {
   getProject,
   updateProject,
   deleteProject,
-  updateProgress    // ✅ AJOUTÉ
+  updateProgress,    // ✅ AJOUTÉ
+  getProjectInsights // ✅ Sprint 12
 } = require('../controllers/project.controller');
 const { protect } = require('../middlewares/auth.middleware');
 
@@ -26,5 +27,8 @@ router.route('/:id')
 
 // ✅ AJOUTÉ : Route pour mettre à jour la progression (Dashboard)
 router.patch('/:id/progress', updateProgress);
+
+// ✅ Sprint 12 : Insights endpoint (returns saved insight or 404 for frontend mock)
+router.get('/:id/insights', getProjectInsights);
 
 module.exports = router;

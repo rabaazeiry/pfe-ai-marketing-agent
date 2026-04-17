@@ -13,7 +13,7 @@ import type { ProjectInsights } from '../types';
 import { StateView } from './StateView';
 
 type Props = {
-  insights: ProjectInsights | undefined;
+  insights: ProjectInsights | null | undefined;
   isLoading: boolean;
   isError: boolean;
 };
@@ -28,11 +28,6 @@ export function InsightsSection({ insights, isLoading, isError }: Props) {
           <h3 className="font-semibold text-slate-900">{t('projects.detail.insights.title')}</h3>
           <p className="text-xs text-slate-500">{t('projects.detail.insights.subtitle')}</p>
         </div>
-        {insights?.isMocked && (
-          <span className="text-[10px] uppercase tracking-wide bg-amber-50 text-amber-700 ring-1 ring-amber-200 px-2 py-0.5 rounded-full font-medium">
-            {t('projects.detail.insights.previewBadge')}
-          </span>
-        )}
       </div>
 
       {isLoading ? (

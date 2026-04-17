@@ -2,6 +2,7 @@
 // VERSION 5 — Adapté pour Pâtisserie Tunisienne
 
 const Project           = require('../models/Project.model');
+const Insight           = require('../models/Insight.model');
 const extractionService = require('../services/extraction.service');
 
 exports.createProject = async (req, res, next) => {
@@ -227,5 +228,22 @@ exports.updateProgress = async (req, res, next) => {
       message: 'Progression mise à jour',
       data: { progressPercentage: project.progressPercentage }
     });
+  } catch (error) { next(error); }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GET /api/projects/:id/insights
+// ═══════════════════════════════════════════════════════════════════════════
+exports.getProjectInsights = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ success: false, message: 'Projet non trouvé' });
+    if (project.userId.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Accès refusé' });
+
+    const insight = await Insight.findOne({ projectId: req.params.id });
+    if (!insight) {
+      return res.status(404).json({ success: false, message: 'Aucun insight généré pour ce projet' });
+    }
+    res.status(200).json({ success: true, data: insight });
   } catch (error) { next(error); }
 };

@@ -24,6 +24,9 @@ router.post('/project/:projectId/scrape-facebook', scrapingController.scrapeFace
 // Scrape un seul concurrent
 router.post('/competitor/:competitorId/scrape', scrapingController.scrapeOneCompetitor);
 
+// Sprint 12 — single competitor via Python /v2/scrape (sync)
+router.post('/competitor/:competitorId/scrape-v2', scrapingController.scrapeCompetitorV2);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ROUTES STATUS & RESULTS
 // ═══════════════════════════════════════════════════════════════════════════

@@ -153,6 +153,18 @@
           "in_progress": "Scraping…",
           "completed": "Scrapé",
           "failed": "Échec"
+        },
+        "scrape": {
+          "action": "Scraper",
+          "loading": "Scraping…",
+          "result": "Résultat du scraping",
+          "posts": "Posts",
+          "likes": "Likes",
+          "comments": "Commentaires",
+          "sample": "Extrait",
+          "successBody": "{{name}} : {{count}} post(s) scrapé(s).",
+          "errorTitle": "Échec du scraping",
+          "errorBody": "Impossible de joindre le scraper. Est-il lancé ?"
         }
       },
       "pipeline": {

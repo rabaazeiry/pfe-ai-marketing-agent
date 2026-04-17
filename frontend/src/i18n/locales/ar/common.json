@@ -153,6 +153,18 @@
           "in_progress": "جارٍ الكشط…",
           "completed": "تم الكشط",
           "failed": "فشل"
+        },
+        "scrape": {
+          "action": "كشط",
+          "loading": "جارٍ الكشط…",
+          "result": "نتيجة الكشط",
+          "posts": "منشورات",
+          "likes": "إعجابات",
+          "comments": "تعليقات",
+          "sample": "عيّنة",
+          "successBody": "{{name}}: تم كشط {{count}} منشور(ات).",
+          "errorTitle": "فشل الكشط",
+          "errorBody": "تعذّر الوصول إلى خدمة الكشط. هل هي قيد التشغيل؟"
         }
       },
       "pipeline": {

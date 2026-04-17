@@ -298,12 +298,37 @@ competitorSchema.statics.getStatsByClassification = async function(projectId) {
 };
 
 // ===== HOOKS =====
-competitorSchema.pre('save', function(next) {
-  if (this.isModified('classificationMaturity')) {
-    this.classification = this.classificationMaturity;
-  }
+const VALID_MATURITIES = ['startup', 'leader'];
+const MATURITY_MAP = { seed: 'startup', emerging: 'startup', growth: 'startup', mature: 'leader', dominant: 'leader' };
+
+function normalizeMaturity(value) {
+  if (VALID_MATURITIES.includes(value)) return value;
+  return MATURITY_MAP[value] || 'startup';
+}
+
+// pre('validate') runs BEFORE Mongoose enum validation — pre('save') is too late
+competitorSchema.pre('validate', function(next) {
+  this.classificationMaturity = normalizeMaturity(this.classificationMaturity);
+  this.classification = this.classificationMaturity;
   next();
 });
+
+// findByIdAndUpdate / updateOne / updateMany bypass pre('save') — normalize here too
+function normalizeMaturityInUpdate(next) {
+  const update = this.getUpdate();
+  if (update?.classificationMaturity) {
+    update.classificationMaturity = normalizeMaturity(update.classificationMaturity);
+    update.classification = update.classificationMaturity;
+  }
+  if (update?.$set?.classificationMaturity) {
+    update.$set.classificationMaturity = normalizeMaturity(update.$set.classificationMaturity);
+    update.$set.classification = update.$set.classificationMaturity;
+  }
+  next();
+}
+competitorSchema.pre('findOneAndUpdate', normalizeMaturityInUpdate);
+competitorSchema.pre('updateOne', normalizeMaturityInUpdate);
+competitorSchema.pre('updateMany', normalizeMaturityInUpdate);
 
 competitorSchema.pre('deleteOne', { document: true, query: false }, async function(next) {
   try {

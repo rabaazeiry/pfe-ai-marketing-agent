@@ -327,8 +327,8 @@ class DiscoverService {
           companyName            : comp.companyName,
           website                : comp.website || '',
           description            : `Hôtel Tunisie — ${comp.companyName}`,
-          classificationMaturity : comp.maturity || 'startup',
-          classification         : comp.maturity || 'startup',
+          classificationMaturity : (comp.maturity === 'leader') ? 'leader' : 'startup',
+          classification         : (comp.maturity === 'leader') ? 'leader' : 'startup',
           socialMedia: {
             instagram: { url: comp.instagram || '', username: igUsername, verified: true },
             facebook : { url: comp.facebook  || '', username: fbUsername, verified: true },

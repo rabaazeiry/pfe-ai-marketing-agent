@@ -48,3 +48,28 @@ class NormalizedPost:
     shares: int = 0
     media_urls: list[str] = field(default_factory=list)
     language: Optional[str] = None
+    content_type: Optional[str] = None
+    hashtags: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ProfileData:
+    """Profile-level data extracted alongside posts."""
+
+    username: Optional[str] = None
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
+    followers: int = 0
+    following: int = 0
+    total_posts: int = 0
+    is_verified: bool = False
+    profile_pic_url: Optional[str] = None
+    external_url: Optional[str] = None
+
+
+@dataclass
+class MethodResult:
+    """Return type for ScrapingMethod.run()."""
+
+    posts: list[RawPost] = field(default_factory=list)
+    profile: Optional[ProfileData] = None
