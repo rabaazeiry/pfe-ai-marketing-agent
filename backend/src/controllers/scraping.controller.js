@@ -1,6 +1,7 @@
 // backend/src/controllers/scraping.controller.js
 
 const scrapingService = require('../services/scraping.unified');
+const scraperProxy    = require('../services/scraperProxy.service');
 const Competitor      = require('../models/Competitor.model');
 const SocialAnalysis  = require('../models/SocialAnalysis.model');
 const Project         = require('../models/Project.model');
@@ -267,4 +268,77 @@ exports.resetFacebook = async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POST /api/scraping/competitor/:competitorId/scrape-v2
+// Sprint 12 — Calls the Python /v2/scrape orchestrator (sync response)
+// ═══════════════════════════════════════════════════════════════════════════
+exports.scrapeCompetitorV2 = async (req, res) => {
+  // TEMPORARILY DISABLED — Instagram blocks unauthenticated HTTP requests
+  // (redirects to /accounts/login/). The Python HTTP method always returns 0 posts.
+  // Re-enable once authenticated scraping or a working alternative is implemented.
+  return res.status(503).json({
+    success: false,
+    message: 'Scraping Instagram HTTP temporairement désactivé (Instagram bloque les requêtes sans login)'
+  });
+
+  /*
+  --- original logic (kept for re-activation) ---
+  try {
+    const { competitorId } = req.params;
+
+    const competitor = await Competitor.findById(competitorId);
+    if (!competitor) {
+      return res.status(404).json({ success: false, message: 'Concurrent non trouvé' });
+    }
+
+    const igUrl = competitor.socialMedia?.instagram?.url;
+    if (!igUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ce concurrent n\'a pas de profil Instagram configuré'
+      });
+    }
+
+    competitor.scrapingStatus = 'in_progress';
+    await competitor.save();
+
+    const result = await scraperProxy.scrapeV2({
+      projectId: competitor.projectId.toString(),
+      competitorId: competitor._id.toString(),
+      platform: 'instagram',
+      target: igUrl
+    });
+
+    competitor.scrapingStatus = result.posts_count > 0 ? 'completed' : 'pending';
+    competitor.lastScrapedAt = new Date();
+    await competitor.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Scraping terminé pour ${competitor.companyName}`,
+      data: {
+        competitorId: competitor._id,
+        companyName: competitor.companyName,
+        methodUsed: result.method_used,
+        postsCount: result.posts_count,
+        socialAnalysis: result.social_analysis,
+        competitorUpdate: result.competitor_update
+      }
+    });
+  } catch (error) {
+    console.error('scrapeCompetitorV2 error:', error.message);
+    try {
+      await Competitor.findByIdAndUpdate(req.params.competitorId, { scrapingStatus: 'failed' });
+    } catch {}
+
+    const status = error.response?.status === 502 ? 502 : 500;
+    const message = error.code === 'ECONNREFUSED'
+      ? 'Python scraper service is not running (ECONNREFUSED)'
+      : error.message;
+    return res.status(status).json({ success: false, message });
+  }
+  --- end of original logic ---
+  */
 };

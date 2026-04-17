@@ -40,9 +40,14 @@ class HttpMethod(ScrapingMethod):
     priority = 2
 
     def supports(self, job: ScrapeJob) -> bool:
-        if job.platform != "instagram":
-            return False
-        return job.target.startswith("http://") or job.target.startswith("https://")
+        # TEMPORARILY DISABLED — Instagram blocks unauthenticated HTTP requests
+        # (redirects to /accounts/login/). Re-enable once authenticated scraping
+        # or a working alternative is implemented.
+        # Original logic:
+        # if job.platform != "instagram":
+        #     return False
+        # return job.target.startswith("http://") or job.target.startswith("https://")
+        return False
 
     async def run(self, job: ScrapeJob) -> Iterable[RawPost]:
         html = await _fetch(job.target)
