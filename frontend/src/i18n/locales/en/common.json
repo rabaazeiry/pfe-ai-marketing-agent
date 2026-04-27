@@ -139,6 +139,19 @@
       "category": "Category",
       "createdAt": "Created",
       "competitorsCount": "{{count}} competitors tracked",
+      "tabs": {
+        "pipeline": "Pipeline",
+        "insights": "Insights",
+        "market": "Market",
+        "swot": "SWOT",
+        "competitors": "Competitors"
+      },
+      "wizard": {
+        "back": "Back",
+        "next": "Next",
+        "stepOf": "Step {{current}} / {{total}}",
+        "tablistLabel": "Project sections"
+      },
       "status": {
         "draft": "Draft",
         "active": "Active",

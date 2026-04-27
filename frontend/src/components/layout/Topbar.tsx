@@ -39,9 +39,10 @@ export function Topbar() {
   return (
     <header className="sticky top-0 z-20 h-16 bg-white/80 backdrop-blur border-b border-slate-200 flex items-center px-4 gap-3">
       <button
-        className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600"
+        className="p-2 rounded-lg hover:bg-slate-100 text-slate-600"
         onClick={toggleDrawer}
         aria-label={t('common.menu')}
+        title={t('common.menu')}
       >
         <FiMenu size={22} />
       </button>

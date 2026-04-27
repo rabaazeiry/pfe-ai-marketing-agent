@@ -1,13 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { FiAlertTriangle } from 'react-icons/fi';
+import { FiActivity, FiAlertTriangle, FiBarChart2, FiPieChart, FiTrendingUp, FiUsers } from 'react-icons/fi';
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { CompetitorsSection } from '@/features/projects/components/CompetitorsSection';
 import { PipelineSection } from '@/features/projects/components/PipelineSection';
 import { InsightsSection } from '@/features/projects/components/InsightsSection';
 import { ProjectDetailSkeleton } from '@/features/projects/components/ProjectDetailSkeleton';
+import { ProjectWizard, type WizardStep } from '@/features/projects/components/ProjectWizard';
 import { MarketResearchSection } from '@/features/marketResearch/components/MarketResearchSection';
 import { SwotSection } from '@/features/swot/components/SwotSection';
 import {
@@ -27,6 +28,64 @@ export function ProjectDetailPage() {
   const insights = useProjectInsights(projectId);
 
   useLivePipelineRefresh(projectId);
+
+  const steps = useMemo<WizardStep[]>(
+    () => [
+      {
+        id: 'pipeline',
+        labelKey: 'projects.detail.tabs.pipeline',
+        icon: <FiActivity />,
+        render: () => project.data ? <PipelineSection project={project.data} /> : null
+      },
+      {
+        id: 'insights',
+        labelKey: 'projects.detail.tabs.insights',
+        icon: <FiTrendingUp />,
+        render: () => (
+          <InsightsSection
+            insights={insights.data}
+            isLoading={insights.isLoading}
+            isError={insights.isError}
+          />
+        )
+      },
+      {
+        id: 'market',
+        labelKey: 'projects.detail.tabs.market',
+        icon: <FiBarChart2 />,
+        render: () => <MarketResearchSection projectId={projectId} />
+      },
+      {
+        id: 'swot',
+        labelKey: 'projects.detail.tabs.swot',
+        icon: <FiPieChart />,
+        render: () => <SwotSection projectId={projectId} />
+      },
+      {
+        id: 'competitors',
+        labelKey: 'projects.detail.tabs.competitors',
+        icon: <FiUsers />,
+        render: () => (
+          <CompetitorsSection
+            projectId={projectId}
+            competitors={competitors.data}
+            isLoading={competitors.isLoading}
+            isError={competitors.isError}
+          />
+        )
+      }
+    ],
+    [
+      projectId,
+      project.data,
+      insights.data,
+      insights.isLoading,
+      insights.isError,
+      competitors.data,
+      competitors.isLoading,
+      competitors.isError
+    ]
+  );
 
   if (project.isLoading) {
     return <ProjectDetailSkeleton />;
@@ -59,26 +118,7 @@ export function ProjectDetailPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       <ProjectHeader project={project.data} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PipelineSection project={project.data} />
-        <InsightsSection
-          insights={insights.data}
-          isLoading={insights.isLoading}
-          isError={insights.isError}
-        />
-      </div>
-
-      <MarketResearchSection projectId={projectId} />
-
-      <SwotSection projectId={projectId} />
-
-      <CompetitorsSection
-        projectId={projectId}
-        competitors={competitors.data}
-        isLoading={competitors.isLoading}
-        isError={competitors.isError}
-      />
+      <ProjectWizard steps={steps} storageKey={`project:${projectId}:wizardTab`} />
     </div>
   );
 }

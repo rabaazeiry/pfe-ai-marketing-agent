@@ -139,6 +139,19 @@
       "category": "الفئة",
       "createdAt": "تاريخ الإنشاء",
       "competitorsCount": "{{count}} منافسون متابَعون",
+      "tabs": {
+        "pipeline": "الخط",
+        "insights": "الرؤى",
+        "market": "السوق",
+        "swot": "SWOT",
+        "competitors": "المنافسون"
+      },
+      "wizard": {
+        "back": "السابق",
+        "next": "التالي",
+        "stepOf": "الخطوة {{current}} / {{total}}",
+        "tablistLabel": "أقسام المشروع"
+      },
       "status": {
         "draft": "مسودة",
         "active": "نشِط",
