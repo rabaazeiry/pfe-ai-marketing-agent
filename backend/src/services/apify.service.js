@@ -5,10 +5,11 @@ const axios = require('axios');
 
 const APIFY_BASE    = 'https://api.apify.com/v2';
 const POLL_INTERVAL = 4000;   // 4 secondes entre chaque poll
-const MAX_WAIT      = 180000; // 3 minutes max par run
+const MAX_WAIT      = 300000; // 5 minutes max par run
 
 const ACTORS = {
   INSTAGRAM_PROFILE : 'apify/instagram-profile-scraper',
+  INSTAGRAM_POST    : 'apify/instagram-post-scraper',
   FACEBOOK_PAGE     : 'apify/facebook-pages-scraper',
 };
 
@@ -57,18 +58,48 @@ class ApifyService {
   // INSTAGRAM — profil + posts récents
   // ═══════════════════════════════════════════════════════
 
-  async scrapeInstagram(profileUrl) {
+  async scrapeInstagram(profileUrl, postsLimit = 100) {
     const username = this._extractUsername(profileUrl);
     if (!username) throw new Error(`Username introuvable depuis: ${profileUrl}`);
 
-    const items = await this._runActor(ACTORS.INSTAGRAM_PROFILE, {
-      usernames     : [username],
-      resultsLimit  : 1,
-      resultsType   : 'posts',
-    });
+    console.log(`[Apify] Hybrid scrape start: ${username} (limit=${postsLimit})`);
 
-    if (!items || items.length === 0) throw new Error('Aucune donnée Instagram retournée');
-    return this._transformInstagram(items[0], profileUrl);
+    const [profileSettled, postsSettled] = await Promise.allSettled([
+      this._runActor(ACTORS.INSTAGRAM_PROFILE, {
+        usernames    : [username],
+        resultsLimit : 1,
+        resultsType  : 'details',
+      }),
+      this._runActor(ACTORS.INSTAGRAM_POST, {
+        username     : [username],
+        resultsLimit : postsLimit,
+      }),
+    ]);
+
+    if (profileSettled.status === 'rejected') {
+      console.warn(`[Apify] Profile actor failed: ${profileSettled.reason?.message}`);
+    }
+    if (postsSettled.status === 'rejected') {
+      console.warn(`[Apify] Post actor failed: ${postsSettled.reason?.message}`);
+    }
+
+    const profileItems = profileSettled.status === 'fulfilled' ? profileSettled.value : [];
+    const postItems    = postsSettled.status   === 'fulfilled' ? postsSettled.value   : [];
+
+    if (profileItems.length === 0 && postItems.length === 0) {
+      throw new Error('Aucune donnée Instagram retournée (profil + posts en échec)');
+    }
+
+    const profileRaw = profileItems[0] || {};
+    const merged = {
+      ...profileRaw,
+      latestPosts: postItems.length > 0
+        ? postItems
+        : (profileRaw.latestPosts || profileRaw.posts || []),
+    };
+
+    console.log(`[Apify] Hybrid done: profile=${profileItems.length}, posts=${postItems.length}`);
+    return this._transformInstagram(merged, profileUrl);
   }
 
   // ═══════════════════════════════════════════════════════
@@ -93,30 +124,35 @@ class ApifyService {
   _transformInstagram(raw, profileUrl) {
     const posts = raw.latestPosts || raw.posts || [];
 
-    const avgLikes    = this._avg(posts.map(p => p.likesCount    || p.likes    || 0));
-    const avgComments = this._avg(posts.map(p => p.commentsCount || p.comments || 0));
+    const avgLikes    = this._avg(posts.map(p => Math.max(p.likesCount    || p.likes    || 0, 0)));
+    const avgComments = this._avg(posts.map(p => Math.max(p.commentsCount || p.comments || 0, 0)));
     const followers   = raw.followersCount || raw.followers || 0;
 
     const engagementRate = followers > 0
       ? parseFloat(((avgLikes + avgComments) / followers * 100).toFixed(2))
       : 0;
 
-    const topPosts = [...posts]
-      .sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0))
-      .slice(0, 5)
-      .map(p => ({
-        postUrl        : p.url || (p.shortCode ? `https://www.instagram.com/p/${p.shortCode}/` : ''),
-        likes          : p.likesCount    || p.likes    || 0,
-        comments       : p.commentsCount || p.comments || 0,
-        shares         : 0,
-        contentType    : this._igContentType(p.type || p.productType || ''),
-        caption        : (p.caption || '').substring(0, 300),
-        hashtags       : this._extractHashtags(p.caption || ''),
-        publishedAt    : p.timestamp ? new Date(p.timestamp) : null,
-        engagementRate : followers > 0
-          ? parseFloat((((p.likesCount || 0) + (p.commentsCount || 0)) / followers * 100).toFixed(2))
-          : 0,
-      }));
+    // Keep ALL posts (no slice, no sort-by-likes). Apify returns them most-recent-first,
+    // which matches the `recentPosts` semantic. We preserve that order.
+    const recentPosts = posts.map(p => ({
+      postUrl        : p.url || (p.shortCode ? `https://www.instagram.com/p/${p.shortCode}/` : ''),
+      imageUrl       : p.displayUrl || p.imageUrl || '',
+      thumbnailUrl   : p.thumbnailUrl || '',
+      videoUrl       : p.videoUrl || '',
+      likes          : Math.max(p.likesCount    || p.likes    || 0, 0),
+      comments       : Math.max(p.commentsCount || p.comments || 0, 0),
+      shares         : 0,
+      views          : Math.max(p.videoViewCount || p.videoPlayCount || 0, 0),
+      contentType    : this._igContentType(p.type || p.productType || ''),
+      slideCount     : Array.isArray(p.childPosts) ? Math.min(Math.max(p.childPosts.length, 1), 20) : 1,
+      caption        : (p.caption || '').substring(0, 2200),
+      hashtags       : this._extractHashtags(p.caption || ''),
+      location       : (p.locationName || '').substring(0, 200),
+      publishedAt    : p.timestamp ? new Date(p.timestamp) : null,
+      engagementRate : followers > 0
+        ? parseFloat(((Math.max(p.likesCount || 0, 0) + Math.max(p.commentsCount || 0, 0)) / followers * 100).toFixed(2))
+        : 0,
+    }));
 
     const allCaptions = posts.map(p => p.caption || '').join(' ');
 
@@ -133,9 +169,9 @@ class ApifyService {
       avgLikes,
       avgComments,
       avgShares          : 0,
-      avgViews           : this._avg(posts.map(p => p.videoViewCount || p.videoPlayCount || 0)),
+      avgViews           : this._avg(posts.map(p => Math.max(p.videoViewCount || p.videoPlayCount || 0, 0))),
       engagementRate,
-      topPosts,
+      recentPosts,
       topHashtags        : this._topHashtags(allCaptions),
       contentDistribution: this._contentDistribution(posts.map(p => p.type || p.productType || 'Image')),
       ...this._bestTimes(posts.map(p => p.timestamp).filter(Boolean)),
@@ -158,22 +194,19 @@ class ApifyService {
       ? parseFloat(((avgLikes + avgComments + avgShares) / followers * 100).toFixed(2))
       : 0;
 
-    const topPosts = [...posts]
-      .sort((a, b) => (b.likes || 0) - (a.likes || 0))
-      .slice(0, 5)
-      .map(p => ({
-        postUrl        : p.url || p.postUrl || '',
-        likes          : p.likes    || p.likesCount    || 0,
-        comments       : p.comments || p.commentsCount || 0,
-        shares         : p.shares   || p.sharesCount   || 0,
-        contentType    : p.video ? 'video' : 'photo',
-        caption        : (p.text || p.message || '').substring(0, 300),
-        hashtags       : this._extractHashtags(p.text || p.message || ''),
-        publishedAt    : p.time ? new Date(p.time) : null,
-        engagementRate : followers > 0
-          ? parseFloat((((p.likes || 0) + (p.comments || 0) + (p.shares || 0)) / followers * 100).toFixed(2))
-          : 0,
-      }));
+    const recentPosts = posts.map(p => ({
+      postUrl        : p.url || p.postUrl || '',
+      likes          : p.likes    || p.likesCount    || 0,
+      comments       : p.comments || p.commentsCount || 0,
+      shares         : p.shares   || p.sharesCount   || 0,
+      contentType    : p.video ? 'video' : 'photo',
+      caption        : (p.text || p.message || '').substring(0, 2200),
+      hashtags       : this._extractHashtags(p.text || p.message || ''),
+      publishedAt    : p.time ? new Date(p.time) : null,
+      engagementRate : followers > 0
+        ? parseFloat((((p.likes || 0) + (p.comments || 0) + (p.shares || 0)) / followers * 100).toFixed(2))
+        : 0,
+    }));
 
     const allTexts = posts.map(p => p.text || p.message || '').join(' ');
 
@@ -192,7 +225,7 @@ class ApifyService {
       avgShares,
       avgViews           : 0,
       engagementRate,
-      topPosts,
+      recentPosts,
       topHashtags        : this._topHashtags(allTexts),
       contentDistribution: { photo: 0, video: 0, reel: 0, carousel: 0, story: 0 },
       reviewsCount       : raw.reviews || raw.reviewsCount || 0,

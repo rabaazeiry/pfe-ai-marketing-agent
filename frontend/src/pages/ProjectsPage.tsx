@@ -1,10 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import axios from 'axios';
-import { FiAlertTriangle, FiChevronRight, FiFolderPlus, FiPlus, FiZap } from 'react-icons/fi';
-import { listProjects, triggerWsDemo } from '@/features/projects/api';
+import {
+  FiAlertTriangle,
+  FiChevronRight,
+  FiFolderPlus,
+  FiLayers,
+  FiList,
+  FiPlus,
+  FiZap
+} from 'react-icons/fi';
+import { listProjects, triggerWsDemo, type Project } from '@/features/projects/api';
 import { NewProjectModal } from '@/features/projects/components/NewProjectModal';
 import { useCreateProject } from '@/features/projects/useCreateProject';
 import {
@@ -35,6 +43,9 @@ export function ProjectsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const createProjectMutation = useCreateProject();
+  const [groupByIndustry, setGroupByIndustry] = useState(false);
+
+  const groupedProjects = useMemo(() => groupByIndustryKey(projects ?? []), [projects]);
 
   useEffect(() => {
     const off1 = on(WS_EVENTS.SCRAPING_STARTED, () => setProgress({ pct: 0, message: t('projects.live.starting') }));
@@ -141,70 +152,64 @@ export function ProjectsPage() {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs uppercase tracking-wide text-slate-500 bg-slate-50/70 border-b border-slate-100">
-                  <th className="py-3 ps-5 pe-3 text-start font-medium">{t('projects.table.idea')}</th>
-                  <th className="py-3 px-3 text-start font-medium">{t('projects.table.category')}</th>
-                  <th className="py-3 px-3 text-start font-medium">{t('projects.table.status')}</th>
-                  <th className="py-3 px-3 text-start font-medium">{t('projects.table.pipeline')}</th>
-                  <th className="py-3 pe-5 ps-3 w-10" aria-hidden />
-                </tr>
-              </thead>
-              <tbody>
-                {projects.map((p) => {
-                  const statusTone = projectStatusTone(p.status);
-                  const pipeTone = pipelineTone(p.pipelineStatus);
-                  const statusLabel = p.status
-                    ? t(`projects.detail.status.${p.status}`, { defaultValue: p.status })
-                    : '—';
-                  const pipeLabel = formatPipelineLabel(p.pipelineStatus);
-                  return (
-                    <tr
-                      key={p._id}
-                      role="button"
-                      tabIndex={0}
-                      className="group border-b border-slate-100 last:border-0 cursor-pointer transition-colors hover:bg-slate-50/80 focus:bg-slate-50/80 focus:outline-none"
-                      onClick={() =>
-                        navigate({ to: '/projects/$projectId', params: { projectId: p._id } })
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          navigate({ to: '/projects/$projectId', params: { projectId: p._id } });
-                        }
-                      }}
-                    >
-                      <td className="py-3.5 ps-5 pe-3 font-medium text-slate-800">
-                        <span className="line-clamp-2 max-w-xl">{p.businessIdea}</span>
-                      </td>
-                      <td className="py-3.5 px-3 text-slate-600">{p.marketCategory ?? '—'}</td>
-                      <td className="py-3.5 px-3">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${statusTone.bg} ${statusTone.text} ${statusTone.ring}`}
-                        >
-                          <span className={`h-1.5 w-1.5 rounded-full ${statusTone.dot}`} />
-                          {statusLabel}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${pipeTone.bg} ${pipeTone.text} ${pipeTone.ring}`}
-                        >
-                          <span className={`h-1.5 w-1.5 rounded-full ${pipeTone.dot}`} />
-                          {pipeLabel}
-                        </span>
-                      </td>
-                      <td className="py-3.5 pe-5 ps-3 text-slate-300 group-hover:text-slate-500 transition-colors">
-                        <FiChevronRight className="ms-auto" />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-2.5">
+              <div className="inline-flex items-center gap-1 rounded-lg bg-white p-0.5 ring-1 ring-slate-200">
+                <ViewToggleButton
+                  active={!groupByIndustry}
+                  onClick={() => setGroupByIndustry(false)}
+                  icon={<FiList className="h-3.5 w-3.5" />}
+                  label={t('projects.view.flat')}
+                />
+                <ViewToggleButton
+                  active={groupByIndustry}
+                  onClick={() => setGroupByIndustry(true)}
+                  icon={<FiLayers className="h-3.5 w-3.5" />}
+                  label={t('projects.view.grouped')}
+                />
+              </div>
+              <span className="text-xs text-slate-500">
+                {t('projects.total', { count: projects.length })}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-slate-500 bg-slate-50/70 border-b border-slate-100">
+                    <th className="py-3 ps-5 pe-3 text-start font-medium">{t('projects.table.idea')}</th>
+                    <th className="py-3 px-3 text-start font-medium">{t('projects.table.industry')}</th>
+                    <th className="py-3 px-3 text-start font-medium">{t('projects.table.category')}</th>
+                    <th className="py-3 px-3 text-start font-medium">{t('projects.table.status')}</th>
+                    <th className="py-3 px-3 text-start font-medium">{t('projects.table.pipeline')}</th>
+                    <th className="py-3 pe-5 ps-3 w-10" aria-hidden />
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupByIndustry
+                    ? groupedProjects.map((group) => (
+                        <GroupRows
+                          key={group.key}
+                          group={group}
+                          onOpen={(id) =>
+                            navigate({ to: '/projects/$projectId', params: { projectId: id } })
+                          }
+                          t={t}
+                        />
+                      ))
+                    : projects.map((p) => (
+                        <ProjectRow
+                          key={p._id}
+                          project={p}
+                          onOpen={(id) =>
+                            navigate({ to: '/projects/$projectId', params: { projectId: id } })
+                          }
+                          t={t}
+                        />
+                      ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -239,6 +244,148 @@ export function ProjectsPage() {
         }}
       />
     </div>
+  );
+}
+
+type IndustryGroup = { key: string; label: string; items: Project[] };
+
+function groupByIndustryKey(items: Project[]): IndustryGroup[] {
+  const map = new Map<string, IndustryGroup>();
+  for (const p of items) {
+    const raw = (p.industry || p.marketCategory || '').trim();
+    const key = raw ? raw.toLowerCase() : '__unknown';
+    const label = raw || '—';
+    let bucket = map.get(key);
+    if (!bucket) {
+      bucket = { key, label, items: [] };
+      map.set(key, bucket);
+    }
+    bucket.items.push(p);
+  }
+  return Array.from(map.values()).sort((a, b) => b.items.length - a.items.length);
+}
+
+type TranslateFn = ReturnType<typeof useTranslation>['t'];
+
+function ViewToggleButton({
+  active,
+  onClick,
+  icon,
+  label
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  const base = 'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors';
+  const activeCls = 'bg-brand-50 text-brand-700 ring-1 ring-brand-100';
+  const idleCls = 'text-slate-500 hover:text-slate-700';
+  return (
+    <button type="button" className={`${base} ${active ? activeCls : idleCls}`} onClick={onClick}>
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function ProjectRow({
+  project,
+  onOpen,
+  t
+}: {
+  project: Project;
+  onOpen: (id: string) => void;
+  t: TranslateFn;
+}) {
+  const statusTone = projectStatusTone(project.status);
+  const pipeTone = pipelineTone(project.pipelineStatus);
+  const statusLabel = project.status
+    ? t(`projects.detail.status.${project.status}`, { defaultValue: project.status })
+    : '—';
+  const pipeLabel = formatPipelineLabel(project.pipelineStatus);
+  const industryLabel = project.industry?.trim() || '—';
+
+  return (
+    <tr
+      role="button"
+      tabIndex={0}
+      className="group border-b border-slate-100 last:border-0 cursor-pointer transition-colors hover:bg-slate-50/80 focus:bg-slate-50/80 focus:outline-none"
+      onClick={() => onOpen(project._id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(project._id);
+        }
+      }}
+    >
+      <td className="py-3.5 ps-5 pe-3 font-medium text-slate-800">
+        <span className="line-clamp-2 max-w-xl">{project.businessIdea}</span>
+        {typeof project.competitorsCount === 'number' && project.competitorsCount > 0 && (
+          <div className="mt-1 text-[11px] text-slate-400">
+            {t('projects.competitorsInline', { count: project.competitorsCount })}
+          </div>
+        )}
+      </td>
+      <td className="py-3.5 px-3">
+        {industryLabel === '—' ? (
+          <span className="text-slate-400 text-xs">—</span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-100">
+            {industryLabel}
+          </span>
+        )}
+      </td>
+      <td className="py-3.5 px-3 text-slate-600">{project.marketCategory ?? '—'}</td>
+      <td className="py-3.5 px-3">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${statusTone.bg} ${statusTone.text} ${statusTone.ring}`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${statusTone.dot}`} />
+          {statusLabel}
+        </span>
+      </td>
+      <td className="py-3.5 px-3">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${pipeTone.bg} ${pipeTone.text} ${pipeTone.ring}`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${pipeTone.dot}`} />
+          {pipeLabel}
+        </span>
+      </td>
+      <td className="py-3.5 pe-5 ps-3 text-slate-300 group-hover:text-slate-500 transition-colors">
+        <FiChevronRight className="ms-auto" />
+      </td>
+    </tr>
+  );
+}
+
+function GroupRows({
+  group,
+  onOpen,
+  t
+}: {
+  group: IndustryGroup;
+  onOpen: (id: string) => void;
+  t: TranslateFn;
+}) {
+  return (
+    <>
+      <tr className="bg-slate-50/70 border-y border-slate-100">
+        <td colSpan={6} className="py-2 ps-5 pe-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <FiLayers className="h-3.5 w-3.5 text-slate-400" />
+            <span>{group.label}</span>
+            <span className="text-slate-400 font-normal normal-case">
+              · {t('projects.total', { count: group.items.length })}
+            </span>
+          </div>
+        </td>
+      </tr>
+      {group.items.map((p) => (
+        <ProjectRow key={p._id} project={p} onOpen={onOpen} t={t} />
+      ))}
+    </>
   );
 }
 

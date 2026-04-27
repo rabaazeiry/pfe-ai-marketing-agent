@@ -184,7 +184,7 @@ exports.getScrapingStatus = async (req, res) => {
     };
 
     const analyses = await SocialAnalysis.find({ projectId })
-      .select('competitorId platform scrapingStatus followers engagementRate lastScrapedAt topPosts');
+      .select('competitorId platform scrapingStatus followers engagementRate lastScrapedAt recentPosts');
 
     const competitorsWithAnalysis = competitors.map(c => {
       const igAnalysis = analyses.find(
@@ -204,14 +204,14 @@ exports.getScrapingStatus = async (req, res) => {
           status        : igAnalysis.scrapingStatus,
           followers     : igAnalysis.followers,
           engagementRate: igAnalysis.engagementRate,
-          postsScraped  : igAnalysis.topPosts?.length || 0,
+          postsScraped  : igAnalysis.recentPosts?.length || 0,
           lastScrapedAt : igAnalysis.lastScrapedAt,
         } : null,
         facebook      : fbAnalysis ? {
           status        : fbAnalysis.scrapingStatus,
           followers     : fbAnalysis.followers,
           engagementRate: fbAnalysis.engagementRate,
-          postsScraped  : fbAnalysis.topPosts?.length || 0,
+          postsScraped  : fbAnalysis.recentPosts?.length || 0,
           lastScrapedAt : fbAnalysis.lastScrapedAt,
         } : null,
       };

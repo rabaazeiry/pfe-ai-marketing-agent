@@ -62,7 +62,7 @@ if (!competitorId) {
       console.log(`  avgComments     : ${a.avgComments}`);
       console.log(`  engagementRate  : ${a.engagementRate}`);
       console.log(`  performanceScore: ${a.performanceScore}`);
-      console.log(`  topPosts count  : ${a.topPosts?.length || 0}`);
+      console.log(`  recentPosts count: ${a.recentPosts?.length || 0}`);
       console.log(`  topHashtags     : ${(a.topHashtags || []).slice(0, 5).join(', ')}${(a.topHashtags || []).length > 5 ? '...' : ''}`);
     }
 

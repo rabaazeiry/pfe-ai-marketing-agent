@@ -244,7 +244,7 @@ this is a result form claude chat (you in web LLM mode)
 
 
 ## Todo
-1. analyse your options
+1. analyse your options (add if necessary crawl4ia and use it maybe as service)
 2. breakdown in feasable tasks
 3. try to refactor or implement as microservices the three options,
 4. report your work in  md (enriched with mermaid while possible) file and update the plan

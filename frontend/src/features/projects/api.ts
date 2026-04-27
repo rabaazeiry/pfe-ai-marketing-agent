@@ -3,7 +3,12 @@ import { api } from '@/lib/api/client';
 export type Project = {
   _id: string;
   businessIdea: string;
+  name?: string;
   marketCategory?: string;
+  industry?: string;
+  country?: string;
+  targetCountry?: string;
+  competitorsCount?: number;
   status?: string;
   pipelineStatus?: string;
   createdAt?: string;

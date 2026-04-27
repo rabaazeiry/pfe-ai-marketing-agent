@@ -1,0 +1,8 @@
+quantity,value
+best_iteration,111.0
+Train R2,0.2175
+Val R2,0.1163
+Test R2,0.1526
+Gap (Train - Test),0.0649
+Test MAE,0.3473
+Test RMSE,0.7699

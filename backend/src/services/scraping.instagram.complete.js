@@ -316,8 +316,8 @@ async function saveToSocialAnalysis(competitor, userData, posts, metrics) {
     avgViews: metrics.avgViews,
     engagementRate: metrics.engagementRate,
     
-    // Posts
-    topPosts: posts.slice(0, 15), // Max 15 posts
+    // Posts (all, ordered most-recent-first)
+    recentPosts: posts,
     
     // Hashtags
     topHashtags: metrics.topHashtags,

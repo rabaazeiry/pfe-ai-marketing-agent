@@ -63,7 +63,7 @@ async function scrapeProjectSocialMedia(projectId, competitorIds = null, platfor
 
             await persistAnalysis(competitor, platform, data);
             result[platform] = true;
-            console.log(`      ✅ ${platform} sauvegardé (${data.followers} followers, ${data.topPosts?.length || 0} top posts)`);
+            console.log(`      ✅ ${platform} sauvegardé (${data.followers} followers, ${data.recentPosts?.length || 0} recent posts)`);
           } catch (error) {
             console.error(`      ❌ ${platform} failed: ${error.message}`);
             if (error.stack) console.error(error.stack);
@@ -130,7 +130,7 @@ async function persistAnalysis(competitor, platform, data) {
   doc.avgShares = data.avgShares || 0;
   doc.avgViews = data.avgViews || 0;
   doc.engagementRate = data.engagementRate || 0;
-  doc.topPosts = data.topPosts || [];
+  doc.recentPosts = data.recentPosts || [];
   doc.topHashtags = data.topHashtags || [];
   doc.contentDistribution = data.contentDistribution || doc.contentDistribution;
   doc.bestDays = data.bestDays || [];

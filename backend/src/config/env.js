@@ -24,5 +24,9 @@ module.exports = {
   CHROMA_API_KEY: process.env.CHROMA_API_KEY || '',
   CHROMA_TENANT: process.env.CHROMA_TENANT || '',
   CHROMA_DATABASE: process.env.CHROMA_DATABASE || '',
-  APIFY_API_KEY: process.env.APIFY_API_KEY || ''
+  APIFY_API_KEY: process.env.APIFY_API_KEY || '',
+
+  OLLAMA_URL: process.env.OLLAMA_URL || 'http://localhost:11434/api/generate',
+  OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3.1',
+  OLLAMA_TIMEOUT_MS: Number(process.env.OLLAMA_TIMEOUT_MS || 600000)
 };

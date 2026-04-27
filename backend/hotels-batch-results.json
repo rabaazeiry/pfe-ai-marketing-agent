@@ -1,0 +1,77 @@
+{
+  "startedAt": "2026-04-21T20:15:58.954Z",
+  "industry": "hotels",
+  "project": "PFE Analysis - Hotels",
+  "brands": [
+    "fstunis",
+    "soussepearlmarriott",
+    "hiltonskanesmonastir",
+    "radissonblutunis",
+    "tunismarriott",
+    "la_badira",
+    "movenpick_hotel_gammarth",
+    "el_mouradi_hotels",
+    "movenpicklactunis",
+    "theresidencetunis"
+  ],
+  "skipped": [],
+  "success": [
+    {
+      "username": "soussepearlmarriott",
+      "postsCount": 100,
+      "elapsedSec": 43.7
+    },
+    {
+      "username": "hiltonskanesmonastir",
+      "postsCount": 100,
+      "elapsedSec": 49.1
+    },
+    {
+      "username": "radissonblutunis",
+      "postsCount": 100,
+      "elapsedSec": 37.8
+    },
+    {
+      "username": "tunismarriott",
+      "postsCount": 100,
+      "elapsedSec": 35.2
+    },
+    {
+      "username": "la_badira",
+      "postsCount": 100,
+      "elapsedSec": 50.4
+    },
+    {
+      "username": "movenpick_hotel_gammarth",
+      "postsCount": 100,
+      "elapsedSec": 41
+    },
+    {
+      "username": "el_mouradi_hotels",
+      "postsCount": 100,
+      "elapsedSec": 78.8
+    },
+    {
+      "username": "movenpicklactunis",
+      "postsCount": 100,
+      "elapsedSec": 58.7
+    },
+    {
+      "username": "theresidencetunis",
+      "postsCount": 100,
+      "elapsedSec": 36.8
+    }
+  ],
+  "partial": [
+    {
+      "username": "fstunis",
+      "postsCount": 19,
+      "elapsedSec": 22.4
+    }
+  ],
+  "failed": [],
+  "endedAt": "2026-04-21T20:24:00.071Z",
+  "totalMs": 481117,
+  "totalNewPosts": 919,
+  "estCostUSD": 1
+}

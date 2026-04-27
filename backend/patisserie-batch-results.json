@@ -1,0 +1,64 @@
+{
+  "startedAt": "2026-04-20T21:17:16.228Z",
+  "industry": "food",
+  "project": "PFE Analysis - Food",
+  "brands": [
+    "patisseriemasmoudi",
+    "patisserie_h_by_omar",
+    "mamie.karima",
+    "lamaisongourmandise",
+    "maisonturki",
+    "patisserierekik",
+    "patisserie.sakka",
+    "labeylicale"
+  ],
+  "skipped": [
+    {
+      "username": "patisserie_h_by_omar",
+      "existingCount": 100
+    }
+  ],
+  "success": [
+    {
+      "username": "patisseriemasmoudi",
+      "postsCount": 100,
+      "elapsedSec": 79.9
+    },
+    {
+      "username": "mamie.karima",
+      "postsCount": 100,
+      "elapsedSec": 61.8
+    },
+    {
+      "username": "lamaisongourmandise",
+      "postsCount": 100,
+      "elapsedSec": 53.3
+    },
+    {
+      "username": "maisonturki",
+      "postsCount": 100,
+      "elapsedSec": 64.6
+    },
+    {
+      "username": "patisserierekik",
+      "postsCount": 100,
+      "elapsedSec": 36.4
+    },
+    {
+      "username": "patisserie.sakka",
+      "postsCount": 100,
+      "elapsedSec": 43.4
+    },
+    {
+      "username": "labeylicale",
+      "postsCount": 100,
+      "elapsedSec": 43.6
+    }
+  ],
+  "partial": [],
+  "failed": [],
+  "endedAt": "2026-04-20T21:23:57.390Z",
+  "totalMs": 401162,
+  "totalNewPosts": 700,
+  "estCostUSD": 0.7
+}

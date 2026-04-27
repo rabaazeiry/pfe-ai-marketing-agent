@@ -123,6 +123,7 @@ marketResearchSchema.virtual('hasMarketSummary').get(function() {
 
 marketResearchSchema.methods.markAsCompleted = function() {
   this.status      = 'completed';
+  this.error       = '';
   this.generatedAt = new Date();
   return this.save();
 };

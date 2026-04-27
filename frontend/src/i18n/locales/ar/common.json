@@ -57,13 +57,9 @@
     "subtitle": "إليك ما يحدث في مشاريعك اليوم.",
     "kpi": {
       "projects": "المشاريع",
-      "projectsDelta": "+2 هذا الأسبوع",
       "competitors": "المنافسون المتابَعون",
-      "competitorsDelta": "+5 هذا الأسبوع",
       "posts": "المنشورات المحلَّلة",
-      "postsDelta": "+142 اليوم",
-      "engagement": "متوسط التفاعل",
-      "engagementDelta": "+0.3 نقطة"
+      "engagement": "متوسط التفاعل"
     },
     "charts": {
       "engagement": "التفاعل هذا الأسبوع",
@@ -71,6 +67,13 @@
       "mix": "مزيج المحتوى",
       "mixSubtitle": "حصة الأشكال عبر العلامات المتابَعة",
       "posts": "المنشورات المنشورة يوميًا"
+    },
+    "empty": "لا توجد بيانات",
+    "error": "تعذر تحميل بيانات لوحة التحكم",
+    "noValue": "—",
+    "filter": {
+      "label": "المشروع",
+      "all": "كل المشاريع"
     }
   },
   "projects": {
@@ -79,12 +82,19 @@
     "new": "مشروع جديد",
     "empty": "لا توجد مشاريع بعد.",
     "emptyHint": "أنشئ أول مشروع لاكتشاف المنافسين وتوليد الرؤى.",
+    "total": "{{count}} إجمالاً",
+    "competitorsInline": "{{count}} منافس(ون) متابَع(ون)",
+    "view": {
+      "flat": "قائمة",
+      "grouped": "حسب القطاع"
+    },
     "errors": {
       "loadTitle": "تعذّر تحميل المشاريع",
       "loadBody": "لا يمكن الوصول إلى الخادم. حاول مرة أخرى."
     },
     "table": {
       "idea": "فكرة العمل",
+      "industry": "القطاع",
       "category": "الفئة",
       "status": "الحالة",
       "pipeline": "المسار"
@@ -194,6 +204,96 @@
         "topCompetitorSignal": "أقوى إشارة منافس",
         "engagementTrend": "اتجاه التفاعل",
         "recommendedAction": "إجراء موصى به"
+      },
+      "marketResearch": {
+        "title": "دراسة السوق",
+        "subtitle": "تحليل قطاعي مولَّد من المنافسين النشطين.",
+        "generate": "توليد ملخص السوق",
+        "regenerate": "إعادة التوليد",
+        "inProgress": "جارٍ التوليد…",
+        "empty": "لا توجد دراسة سوق بعد",
+        "emptyHint": "ولِّد ملخصاً للحصول على رؤية شاملة للقطاع.",
+        "generatedAt": "تم التوليد في {{date}}",
+        "competitorsAnalyzed": "{{count}} منافس(ون) تم تحليلهم",
+        "statusTitle": {
+          "in_progress": "جارٍ التوليد",
+          "failed": "فشل التوليد"
+        },
+        "statusBody": {
+          "in_progress": "يكتب النموذج الأقسام واحداً تلو الآخر. عادةً ما يستغرق ذلك من دقيقة إلى دقيقتين.",
+          "failed": "فشلت المحاولة الأخيرة. يمكنك إعادة المحاولة."
+        },
+        "errors": {
+          "load": "تعذّر تحميل دراسة السوق."
+        },
+        "toasts": {
+          "generatingTitle": "بدأ التوليد",
+          "generatingBody": "قد يستغرق ذلك من دقيقة إلى دقيقتين.",
+          "successTitle": "تم توليد ملخص السوق",
+          "successBody": "تم تحديث الملخص.",
+          "errorTitle": "فشل التوليد",
+          "errorBody": "تعذّر توليد الملخص. حاول مرة أخرى."
+        },
+        "overview": {
+          "totalCompetitors": "المنافسون",
+          "leaderCount": "الرواد",
+          "startupCount": "الشركات الناشئة",
+          "localCount": "المحليون",
+          "internationalCount": "الدوليون",
+          "dominantPlatform": "المنصة المهيمنة",
+          "marketMaturity": "النضج",
+          "coverage": "محلي / دولي"
+        },
+        "maturity": {
+          "emerging": "ناشئ",
+          "growing": "في نموّ",
+          "mature": "ناضج",
+          "declining": "في تراجع",
+          "unknown": "غير محدّد"
+        }
+      },
+      "swot": {
+        "title": "تحليل SWOT",
+        "subtitle": "عرض نقاط القوة / الضعف / الفرص / التهديدات لكل منافس.",
+        "generate": "توليد تحليل SWOT",
+        "regenerate": "إعادة التوليد",
+        "inProgress": "جارٍ التوليد…",
+        "empty": "لا يوجد تحليل SWOT لهذا المنافس بعد",
+        "emptyHint": "اختر منافساً من الأعلى ثم ابدأ التوليد. يستغرق ذلك محلياً من دقيقة إلى دقيقتين.",
+        "generatedAt": "تم التوليد في {{date}}",
+        "statusTitle": {
+          "in_progress": "جارٍ التوليد",
+          "failed": "فشل التوليد"
+        },
+        "statusBody": {
+          "in_progress": "يكتب النموذج الأقسام الأربعة واحداً تلو الآخر.",
+          "failed": "فشلت المحاولة الأخيرة. يمكنك إعادة المحاولة."
+        },
+        "errors": {
+          "load": "تعذّر تحميل تحليل SWOT."
+        },
+        "toasts": {
+          "generatingTitle": "بدأ التوليد",
+          "generatingBody": "قد يستغرق ذلك من دقيقة إلى دقيقتين.",
+          "successTitle": "تم توليد SWOT",
+          "successBody": "تم تحديث التحليل.",
+          "errorTitle": "فشل التوليد",
+          "errorBody": "تعذّر توليد SWOT. حاول مرة أخرى."
+        },
+        "picker": {
+          "label": "المنافس المحلَّل",
+          "noCompetitors": "لا يوجد منافس نشط لهذا المشروع."
+        },
+        "quadrants": {
+          "strengths": "نقاط القوة",
+          "weaknesses": "نقاط الضعف",
+          "opportunities": "الفرص",
+          "threats": "التهديدات"
+        },
+        "source": {
+          "fallback": "تلقائي",
+          "empty": "غير متاح."
+        }
       }
     }
   },

@@ -1,0 +1,56 @@
+{
+  "startedAt": "2026-04-21T19:30:49.400Z",
+  "industry": "fashion",
+  "project": "PFE Analysis - Fashion",
+  "brands": [
+    "zara",
+    "mango",
+    "bershka",
+    "pullandbear",
+    "ha.hamadiabid",
+    "zen.tunisie",
+    "kastelo.com.tn",
+    "chedly_sisters"
+  ],
+  "skipped": [
+    {
+      "username": "zara",
+      "existingCount": 100
+    },
+    {
+      "username": "mango",
+      "existingCount": 100
+    },
+    {
+      "username": "bershka",
+      "existingCount": 100
+    },
+    {
+      "username": "pullandbear",
+      "existingCount": 100
+    },
+    {
+      "username": "ha.hamadiabid",
+      "existingCount": 100
+    },
+    {
+      "username": "zen.tunisie",
+      "existingCount": 100
+    },
+    {
+      "username": "kastelo.com.tn",
+      "existingCount": 100
+    },
+    {
+      "username": "chedly_sisters",
+      "existingCount": 100
+    }
+  ],
+  "success": [],
+  "partial": [],
+  "failed": [],
+  "endedAt": "2026-04-21T19:30:49.479Z",
+  "totalMs": 79,
+  "totalNewPosts": 0,
+  "estCostUSD": 0
+}

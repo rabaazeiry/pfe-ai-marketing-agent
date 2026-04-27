@@ -8,6 +8,7 @@ const Insight        = require('./Insight.model');
 const CampaignPlan   = require('./CampaignPlan.model');
 const Report         = require('./Report.model');
 const MarketResearch = require('./MarketResearch.model'); // ✅ AJOUTÉ
+const SwotAnalysis   = require('./SwotAnalysis.model');
 
 module.exports = {
   User,
@@ -17,5 +18,6 @@ module.exports = {
   Insight,
   CampaignPlan,
   Report,
-  MarketResearch // ✅ AJOUTÉ
+  MarketResearch, // ✅ AJOUTÉ
+  SwotAnalysis
 };

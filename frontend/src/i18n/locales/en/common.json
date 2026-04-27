@@ -57,13 +57,9 @@
     "subtitle": "Here's what's happening across your projects today.",
     "kpi": {
       "projects": "Projects",
-      "projectsDelta": "+2 this week",
       "competitors": "Competitors tracked",
-      "competitorsDelta": "+5 this week",
       "posts": "Posts analyzed",
-      "postsDelta": "+142 today",
-      "engagement": "Avg engagement",
-      "engagementDelta": "+0.3 pts"
+      "engagement": "Avg engagement"
     },
     "charts": {
       "engagement": "Engagement this week",
@@ -71,6 +67,13 @@
       "mix": "Content mix",
       "mixSubtitle": "Format share across tracked brands",
       "posts": "Posts published per day"
+    },
+    "empty": "No data yet",
+    "error": "Couldn't load dashboard data",
+    "noValue": "—",
+    "filter": {
+      "label": "Project",
+      "all": "All projects"
     }
   },
   "projects": {
@@ -79,12 +82,19 @@
     "new": "New project",
     "empty": "No projects yet.",
     "emptyHint": "Create your first project to start discovering competitors and generating insights.",
+    "total": "{{count}} total",
+    "competitorsInline": "{{count}} competitor(s) tracked",
+    "view": {
+      "flat": "List",
+      "grouped": "By industry"
+    },
     "errors": {
       "loadTitle": "Couldn't load projects",
       "loadBody": "We couldn't reach the server. Please try again."
     },
     "table": {
       "idea": "Business idea",
+      "industry": "Industry",
       "category": "Category",
       "status": "Status",
       "pipeline": "Pipeline"
@@ -194,6 +204,96 @@
         "topCompetitorSignal": "Top competitor signal",
         "engagementTrend": "Engagement trend",
         "recommendedAction": "Recommended action"
+      },
+      "marketResearch": {
+        "title": "Market research",
+        "subtitle": "Sector-level analysis generated from active competitors.",
+        "generate": "Generate Market Summary",
+        "regenerate": "Regenerate",
+        "inProgress": "Generating…",
+        "empty": "No market research yet",
+        "emptyHint": "Generate a summary to get a sector-level view.",
+        "generatedAt": "Generated on {{date}}",
+        "competitorsAnalyzed": "{{count}} competitor(s) analyzed",
+        "statusTitle": {
+          "in_progress": "Generating",
+          "failed": "Generation failed"
+        },
+        "statusBody": {
+          "in_progress": "The model is drafting the sections one by one. This usually takes 1 to 2 minutes.",
+          "failed": "The last attempt failed. You can retry."
+        },
+        "errors": {
+          "load": "Couldn't load the market research."
+        },
+        "toasts": {
+          "generatingTitle": "Generation started",
+          "generatingBody": "This may take 1 to 2 minutes.",
+          "successTitle": "Market Summary generated",
+          "successBody": "The summary has been updated.",
+          "errorTitle": "Generation failed",
+          "errorBody": "Couldn't generate the summary. Please try again."
+        },
+        "overview": {
+          "totalCompetitors": "Competitors",
+          "leaderCount": "Leaders",
+          "startupCount": "Startups",
+          "localCount": "Local",
+          "internationalCount": "International",
+          "dominantPlatform": "Dominant platform",
+          "marketMaturity": "Maturity",
+          "coverage": "Local / Int'l"
+        },
+        "maturity": {
+          "emerging": "Emerging",
+          "growing": "Growing",
+          "mature": "Mature",
+          "declining": "Declining",
+          "unknown": "Undetermined"
+        }
+      },
+      "swot": {
+        "title": "SWOT analysis",
+        "subtitle": "Strengths / weaknesses / opportunities / threats — per competitor.",
+        "generate": "Generate SWOT",
+        "regenerate": "Regenerate",
+        "inProgress": "Generating…",
+        "empty": "No SWOT for this competitor yet",
+        "emptyHint": "Pick a competitor above and generate. Runs locally in 1 to 2 minutes.",
+        "generatedAt": "Generated on {{date}}",
+        "statusTitle": {
+          "in_progress": "Generating",
+          "failed": "Generation failed"
+        },
+        "statusBody": {
+          "in_progress": "The model is drafting the four quadrants one by one.",
+          "failed": "The last attempt failed. You can retry."
+        },
+        "errors": {
+          "load": "Couldn't load the SWOT analysis."
+        },
+        "toasts": {
+          "generatingTitle": "Generation started",
+          "generatingBody": "This may take 1 to 2 minutes.",
+          "successTitle": "SWOT generated",
+          "successBody": "The analysis has been updated.",
+          "errorTitle": "Generation failed",
+          "errorBody": "Couldn't generate the SWOT. Please try again."
+        },
+        "picker": {
+          "label": "Competitor analyzed",
+          "noCompetitors": "No active competitor for this project."
+        },
+        "quadrants": {
+          "strengths": "Strengths",
+          "weaknesses": "Weaknesses",
+          "opportunities": "Opportunities",
+          "threats": "Threats"
+        },
+        "source": {
+          "fallback": "auto",
+          "empty": "Not available."
+        }
       }
     }
   },

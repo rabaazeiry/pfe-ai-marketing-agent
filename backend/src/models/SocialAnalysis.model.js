@@ -110,13 +110,13 @@ const topPostSchema = new mongoose.Schema({
     type: Date 
   },
   
-  engagementRate: { 
-    type: Number, 
-    default: 0, 
-    min: 0, 
-    max: 100 
+  engagementRate: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 1000
   }
-  
+
 }, { _id: false });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -223,20 +223,16 @@ const socialAnalysisSchema = new mongoose.Schema({
     min: 0 
   },
   
-  engagementRate: { 
-    type: Number, 
-    default: 0, 
-    min: 0, 
-    max: 100 
+  engagementRate: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 1000
   },
 
   // ═══ ANALYSE DE CONTENU ═══
-  topPosts: {
+  recentPosts: {
     type: [topPostSchema],
-    validate: { 
-      validator: arr => arr.length <= 15, 
-      message: 'Maximum 15 top posts' 
-    },
     default: []
   },
 
@@ -476,18 +472,6 @@ socialAnalysisSchema.methods.updateSentiment = function(sentimentData) {
   return this.save();
 };
 
-socialAnalysisSchema.methods.addTopPost = function(postData) {
-  if (this.topPosts.length >= 15) {
-    const minIdx = this.topPosts.reduce((minIdx, post, idx, arr) => {
-      return post.likes < arr[minIdx].likes ? idx : minIdx;
-    }, 0);
-    this.topPosts[minIdx] = postData;
-  } else {
-    this.topPosts.push(postData);
-  }
-  return this.save();
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 // MÉTHODES STATIQUES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -610,13 +594,8 @@ socialAnalysisSchema.pre('save', function(next) {
     }
   }
   
-  // Trier topPosts par engagement
-  if (this.topPosts && this.topPosts.length > 0) {
-    this.topPosts.sort((a, b) => 
-      (b.likes + b.comments + b.shares) - (a.likes + a.comments + a.shares)
-    );
-  }
-  
+  // recentPosts: pas de tri — on préserve l'ordre chronologique d'Apify (most recent first)
+
   next();
 });
 

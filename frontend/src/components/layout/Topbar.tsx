@@ -1,10 +1,24 @@
+import clsx from 'clsx';
 import { FiMenu, FiLogOut, FiBell } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useUIStore } from '@/stores/ui.store';
 import { useAuthStore } from '@/stores/auth.store';
-import { useNavigate } from '@tanstack/react-router';
 import { closeSocket } from '@/lib/ws/socket';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+
+type TopNavItem = { to: string; labelKey: string; adminOnly?: boolean };
+
+// Mirrors the sidebar NAV (Sidenav.tsx) — kept in sync manually.
+// Visible as a horizontal text nav on md+ screens so the app is
+// navigable even when the sidebar is collapsed (mobile/tablet drawer).
+const TOP_NAV: TopNavItem[] = [
+  { to: '/',          labelKey: 'nav.dashboard' },
+  { to: '/projects',  labelKey: 'nav.projects' },
+  { to: '/analytics', labelKey: 'nav.analytics' },
+  { to: '/settings',  labelKey: 'nav.settings' },
+  { to: '/admin',     labelKey: 'nav.admin', adminOnly: true }
+];
 
 export function Topbar() {
   const { t } = useTranslation();
@@ -12,6 +26,9 @@ export function Topbar() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const navItems = TOP_NAV.filter((n) => !n.adminOnly || user?.role === 'admin');
 
   const handleLogout = () => {
     closeSocket();
@@ -28,6 +45,28 @@ export function Topbar() {
       >
         <FiMenu size={22} />
       </button>
+
+      <nav className="hidden md:flex items-center gap-1" aria-label={t('common.menu')}>
+        {navItems.map((n) => {
+          const active = pathname === n.to || (n.to !== '/' && pathname.startsWith(n.to));
+          return (
+            <Link
+              key={n.to}
+              to={n.to}
+              className={clsx(
+                'inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                active
+                  ? 'bg-brand-50 text-brand-700'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              )}
+              aria-current={active ? 'page' : undefined}
+            >
+              {t(n.labelKey)}
+              {n.adminOnly && <span className="ms-1.5 badge-admin">admin</span>}
+            </Link>
+          );
+        })}
+      </nav>
 
       <div className="flex-1" />
 

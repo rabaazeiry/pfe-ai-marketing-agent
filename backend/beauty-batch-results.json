@@ -1,0 +1,60 @@
+{
+  "startedAt": "2026-04-21T13:31:17.987Z",
+  "industry": "beauty",
+  "project": "PFE Analysis - Beauty",
+  "brands": [
+    "floraison.official",
+    "my_story_cosmetics",
+    "lellacosmetics",
+    "therapybylk",
+    "yvesrocher_tunisie",
+    "nuxetunisie",
+    "freya.tn",
+    "biodermatunisie"
+  ],
+  "skipped": [
+    {
+      "username": "floraison.official",
+      "existingCount": 100
+    },
+    {
+      "username": "my_story_cosmetics",
+      "existingCount": 100
+    },
+    {
+      "username": "lellacosmetics",
+      "existingCount": 100
+    },
+    {
+      "username": "yvesrocher_tunisie",
+      "existingCount": 100
+    },
+    {
+      "username": "freya.tn",
+      "existingCount": 100
+    }
+  ],
+  "success": [
+    {
+      "username": "therapybylk",
+      "postsCount": 100,
+      "elapsedSec": 51.6
+    },
+    {
+      "username": "nuxetunisie",
+      "postsCount": 100,
+      "elapsedSec": 55.8
+    },
+    {
+      "username": "biodermatunisie",
+      "postsCount": 100,
+      "elapsedSec": 38.5
+    }
+  ],
+  "partial": [],
+  "failed": [],
+  "endedAt": "2026-04-21T13:33:50.037Z",
+  "totalMs": 152050,
+  "totalNewPosts": 300,
+  "estCostUSD": 0.3
+}

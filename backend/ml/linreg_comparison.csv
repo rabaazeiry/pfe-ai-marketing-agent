@@ -1,0 +1,4 @@
+metric,baseline,improved,delta,direction
+R2,0.1,0.0961,-0.0039,higher is better
+MAE,0.37,0.377,0.007,lower is better
+RMSE,0.84,0.8483,0.0083,lower is better

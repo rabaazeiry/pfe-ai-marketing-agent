@@ -1,0 +1,64 @@
+{
+  "startedAt": "2026-04-21T21:04:38.812Z",
+  "industry": "restaurants",
+  "project": "PFE Analysis - Restaurants",
+  "brands": [
+    "the716lac2",
+    "legolfe.restaurant",
+    "elfirma.tunis",
+    "baguettebaguette",
+    "kfctunisie",
+    "vie.tunis",
+    "papajohnstn",
+    "la_salle_a_manger"
+  ],
+  "skipped": [],
+  "success": [
+    {
+      "username": "the716lac2",
+      "postsCount": 100,
+      "elapsedSec": 73
+    },
+    {
+      "username": "legolfe.restaurant",
+      "postsCount": 100,
+      "elapsedSec": 48.4
+    },
+    {
+      "username": "elfirma.tunis",
+      "postsCount": 100,
+      "elapsedSec": 73.4
+    },
+    {
+      "username": "baguettebaguette",
+      "postsCount": 100,
+      "elapsedSec": 49.4
+    },
+    {
+      "username": "kfctunisie",
+      "postsCount": 100,
+      "elapsedSec": 43.3
+    },
+    {
+      "username": "vie.tunis",
+      "postsCount": 100,
+      "elapsedSec": 43.4
+    },
+    {
+      "username": "papajohnstn",
+      "postsCount": 100,
+      "elapsedSec": 39.1
+    },
+    {
+      "username": "la_salle_a_manger",
+      "postsCount": 100,
+      "elapsedSec": 47.9
+    }
+  ],
+  "partial": [],
+  "failed": [],
+  "endedAt": "2026-04-21T21:11:57.845Z",
+  "totalMs": 439032,
+  "totalNewPosts": 800,
+  "estCostUSD": 0.8
+}

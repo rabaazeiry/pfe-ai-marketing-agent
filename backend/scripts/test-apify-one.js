@@ -51,7 +51,7 @@ if (!competitorId) {
       console.log(`  avgLikes      : ${r.avgLikes}`);
       console.log(`  avgComments   : ${r.avgComments}`);
       console.log(`  engagementRate: ${r.engagementRate}`);
-      console.log(`  topPosts      : ${r.topPosts?.length || 0}`);
+      console.log(`  recentPosts   : ${r.recentPosts?.length || 0}`);
       console.log(`  topHashtags   : ${(r.topHashtags || []).slice(0, 5).join(', ')}`);
       console.log(`  isVerified    : ${r.isVerified}`);
     };

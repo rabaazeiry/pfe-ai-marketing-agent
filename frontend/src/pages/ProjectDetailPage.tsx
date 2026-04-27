@@ -8,6 +8,8 @@ import { CompetitorsSection } from '@/features/projects/components/CompetitorsSe
 import { PipelineSection } from '@/features/projects/components/PipelineSection';
 import { InsightsSection } from '@/features/projects/components/InsightsSection';
 import { ProjectDetailSkeleton } from '@/features/projects/components/ProjectDetailSkeleton';
+import { MarketResearchSection } from '@/features/marketResearch/components/MarketResearchSection';
+import { SwotSection } from '@/features/swot/components/SwotSection';
 import {
   useProjectCompetitors,
   useProjectDetail,
@@ -66,6 +68,10 @@ export function ProjectDetailPage() {
           isError={insights.isError}
         />
       </div>
+
+      <MarketResearchSection projectId={projectId} />
+
+      <SwotSection projectId={projectId} />
 
       <CompetitorsSection
         projectId={projectId}
