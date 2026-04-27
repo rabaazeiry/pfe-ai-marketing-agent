@@ -19,7 +19,9 @@
       "Bash(powershell:*)",
       "Bash(node -e \"require\\('./src/app'\\); require\\('./src/routes/webhooks.routes'\\); require\\('./src/services/n8n.notify'\\); console.log\\('OK'\\)\")",
       "Bash(python:*)",
-      "Bash(uv run *)"
+      "Bash(uv run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
