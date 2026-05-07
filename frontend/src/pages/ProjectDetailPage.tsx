@@ -13,8 +13,7 @@ import { MarketResearchSection } from '@/features/marketResearch/components/Mark
 import { SwotSection } from '@/features/swot/components/SwotSection';
 import {
   useProjectCompetitors,
-  useProjectDetail,
-  useProjectInsights
+  useProjectDetail
 } from '@/features/projects/useProjectDetail';
 import { useSocket } from '@/hooks/useSocket';
 import { WS_EVENTS } from '@/lib/ws/events';
@@ -25,7 +24,6 @@ export function ProjectDetailPage() {
 
   const project = useProjectDetail(projectId);
   const competitors = useProjectCompetitors(projectId);
-  const insights = useProjectInsights(projectId);
 
   useLivePipelineRefresh(projectId);
 
@@ -43,9 +41,8 @@ export function ProjectDetailPage() {
         icon: <FiTrendingUp />,
         render: () => (
           <InsightsSection
-            insights={insights.data}
-            isLoading={insights.isLoading}
-            isError={insights.isError}
+            industry={project.data?.industry}
+            marketCategory={project.data?.marketCategory}
           />
         )
       },
@@ -78,9 +75,6 @@ export function ProjectDetailPage() {
     [
       projectId,
       project.data,
-      insights.data,
-      insights.isLoading,
-      insights.isError,
       competitors.data,
       competitors.isLoading,
       competitors.isError

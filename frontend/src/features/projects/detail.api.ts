@@ -1,6 +1,8 @@
 import { api } from '@/lib/api/client';
 import type {
   CompetitorSummary,
+  IndustryInsightsBundle,
+  IndustryKey,
   ProjectDetail,
   ProjectInsights
 } from './types';
@@ -30,6 +32,25 @@ export async function getProjectInsights(projectId: string): Promise<ProjectInsi
   try {
     const { data } = await api.get<{ success: boolean; data: ProjectInsights }>(
       `/projects/${projectId}/insights`
+    );
+    return data.data;
+  } catch (err) {
+    if (isMissingEndpoint(err)) return null;
+    throw err;
+  }
+}
+
+/**
+ * GET /insights/:industry — returns the RAG-generated insights bundle
+ * (5 questions x 5 insights) for one of the supported industries.
+ * Returns null on 404 so the UI can show an empty state.
+ */
+export async function getInsightsByIndustry(
+  industry: IndustryKey
+): Promise<IndustryInsightsBundle | null> {
+  try {
+    const { data } = await api.get<{ success: boolean; data: IndustryInsightsBundle }>(
+      `/insights/${industry}`
     );
     return data.data;
   } catch (err) {

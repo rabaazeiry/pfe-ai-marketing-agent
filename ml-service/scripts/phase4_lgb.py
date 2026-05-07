@@ -79,8 +79,8 @@ ROOT = Path(__file__).resolve().parent.parent
 # v3 -> df_ml_dataset_v3.parquet, lgb_v3.pkl, ...
 # Override from CLI: `python phase4_lgb.py v2`
 DATASET_VERSION = sys.argv[1] if len(sys.argv) > 1 else "v3"
-assert DATASET_VERSION in {"v2", "v3"}, \
-    f"DATASET_VERSION must be 'v2' or 'v3', got {DATASET_VERSION!r}"
+assert DATASET_VERSION in {"v2", "v3", "v4"}, \
+    f"DATASET_VERSION must be 'v2', 'v3' or 'v4', got {DATASET_VERSION!r}"
 
 if DATASET_VERSION == "v2":
     IN_PATH      = ROOT / "data"   / "df_ml_dataset.parquet"
@@ -89,13 +89,20 @@ if DATASET_VERSION == "v2":
     RESULTS_PATH = ROOT / "data"   / "lgb_results.txt"
     PRED_PATH    = ROOT / "data"   / "lgb_predictions.parquet"
     SHAP_HTML    = ROOT / "visualizations" / "v3" / "lgb_shap.html"
-else:  # v3
+elif DATASET_VERSION == "v3":
     IN_PATH      = ROOT / "data"   / "df_ml_dataset_v3.parquet"
     MODEL_PATH   = ROOT / "models" / "lgb_v3.pkl"
     COLUMNS_PATH = ROOT / "models" / "lgb_v3_feature_columns.json"
     RESULTS_PATH = ROOT / "data"   / "lgb_v3_results.txt"
     PRED_PATH    = ROOT / "data"   / "lgb_v3_predictions.parquet"
     SHAP_HTML    = ROOT / "visualizations" / "v3" / "lgb_v3_shap.html"
+else:  # v4 — V3 features + 15 CLIP-PCA dims
+    IN_PATH      = ROOT / "data"   / "df_ml_dataset_v4.parquet"
+    MODEL_PATH   = ROOT / "models" / "lgb_v4.pkl"
+    COLUMNS_PATH = ROOT / "models" / "lgb_v4_feature_columns.json"
+    RESULTS_PATH = ROOT / "data"   / "lgb_v4_results.txt"
+    PRED_PATH    = ROOT / "data"   / "lgb_v4_predictions.parquet"
+    SHAP_HTML    = ROOT / "visualizations" / "v4" / "lgb_v4_shap.html"
 
 SEED = 42
 

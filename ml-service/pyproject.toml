@@ -33,6 +33,8 @@ dependencies = [
     "onnxruntime<1.21",
     "langchain-chroma>=1.1.0",
     "langchain-huggingface>=1.2.2",
+    "apify-client>=2.5.0",
+    "opencv-python-headless>=4.13.0.92",
 ]
 
 [tool.uv]

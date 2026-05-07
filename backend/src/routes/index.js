@@ -15,6 +15,7 @@ const wsDemoRoutes         = require('./ws-demo.routes');
 const webhookRoutes        = require('./webhooks.routes');
 const dashboardRoutes      = require('./dashboard.routes');
 const analyticsRoutes      = require('./analytics.routes');
+const insightsRoutes       = require('./insights.routes');
 
 router.use('/auth',           authRoutes);
 router.use('/projects',       projectRoutes);
@@ -28,6 +29,7 @@ router.use('/ws-demo',        wsDemoRoutes);
 router.use('/webhooks',       webhookRoutes);
 router.use('/dashboard',      dashboardRoutes);
 router.use('/analytics',      analyticsRoutes);
+router.use('/insights',       insightsRoutes);
 
 router.get('/health', (req, res) => {
   res.json({

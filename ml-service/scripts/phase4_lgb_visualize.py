@@ -50,8 +50,8 @@ ROOT = Path(__file__).resolve().parent.parent
 # v3 reads lgb_v3.pkl   + lgb_v3_predictions.parquet, writes lgb_v3_*.png.
 # Override from CLI: `python phase4_lgb_visualize.py v2`
 DATASET_VERSION = sys.argv[1] if len(sys.argv) > 1 else "v3"
-assert DATASET_VERSION in {"v2", "v3"}, \
-    f"DATASET_VERSION must be 'v2' or 'v3', got {DATASET_VERSION!r}"
+assert DATASET_VERSION in {"v2", "v3", "v4"}, \
+    f"DATASET_VERSION must be 'v2', 'v3' or 'v4', got {DATASET_VERSION!r}"
 
 if DATASET_VERSION == "v2":
     MODEL_PATH = ROOT / "models" / "lgb_best.pkl"
@@ -59,14 +59,20 @@ if DATASET_VERSION == "v2":
     PRED_PATH  = ROOT / "data"   / "lgb_predictions.parquet"
     SHAP_CACHE = ROOT / "data"   / "_shap_values_cached_lgb.npz"
     PNG_PREFIX = "lgb"
-else:  # v3
+elif DATASET_VERSION == "v3":
     MODEL_PATH = ROOT / "models" / "lgb_v3.pkl"
     DATA_PATH  = ROOT / "data"   / "df_ml_dataset_v3.parquet"
     PRED_PATH  = ROOT / "data"   / "lgb_v3_predictions.parquet"
     SHAP_CACHE = ROOT / "data"   / "_shap_values_cached_lgb_v3.npz"
     PNG_PREFIX = "lgb_v3"
+else:  # v4 — V3 features + 15 CLIP-PCA dims
+    MODEL_PATH = ROOT / "models" / "lgb_v4.pkl"
+    DATA_PATH  = ROOT / "data"   / "df_ml_dataset_v4.parquet"
+    PRED_PATH  = ROOT / "data"   / "lgb_v4_predictions.parquet"
+    SHAP_CACHE = ROOT / "data"   / "_shap_values_cached_lgb_v4.npz"
+    PNG_PREFIX = "lgb_v4"
 
-OUT_DIR = ROOT / "visualizations" / "v3"
+OUT_DIR = ROOT / "visualizations" / ("v4" if DATASET_VERSION == "v4" else "v3")
 
 SEED = 42
 DROP_COLS = ["has_caption", "views"]

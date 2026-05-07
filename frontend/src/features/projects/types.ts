@@ -75,3 +75,31 @@ export type ProjectInsights = {
   recommendedAction: string;
   generatedAt?: string;
 };
+
+// ─── RAG insights (Step 4e) ──────────────────────────────────────────
+export type IndustryKey = 'hotels' | 'restaurants' | 'beauty' | 'fashion' | 'patisserie';
+
+export type RagInsightItem = {
+  title: string;
+  content: string;
+  evidence: string;
+};
+
+export type RagQuestionBlock = {
+  question_id: string;
+  question_title: string;
+  question_text: string;
+  retrieved_docs: string[];
+  insights: RagInsightItem[];
+  raw_response?: string | null;
+  status: string;
+  latency_seconds: number;
+};
+
+export type IndustryInsightsBundle = {
+  industry: IndustryKey;
+  generated_at: string;
+  model: string;
+  temperature: number;
+  questions: RagQuestionBlock[];
+};
