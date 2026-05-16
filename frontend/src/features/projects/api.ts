@@ -8,6 +8,7 @@ export type Project = {
   industry?: string;
   country?: string;
   targetCountry?: string;
+  keywords?: string[];
   competitorsCount?: number;
   status?: string;
   pipelineStatus?: string;
@@ -24,8 +25,20 @@ export async function getProject(id: string) {
   return data.data;
 }
 
-export async function createProject(payload: Partial<Project>) {
+export async function createProject(payload: Partial<Project> & { targetCountry?: string; name?: string }) {
   const { data } = await api.post<{ success: boolean; data: Project }>('/projects', payload);
+  return data.data;
+}
+
+export async function suggestProjectName(payload: {
+  businessIdea: string;
+  marketCategory: string;
+  targetCountry: string;
+}): Promise<{ name: string; keywords: string[]; industry: string }> {
+  const { data } = await api.post<{
+    success: boolean;
+    data: { name: string; keywords: string[]; industry: string };
+  }>('/projects/suggest-name', payload);
   return data.data;
 }
 

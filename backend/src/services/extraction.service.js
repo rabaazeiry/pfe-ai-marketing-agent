@@ -1,5 +1,5 @@
 // backend/src/services/extraction.service.js
-// VERSION 8 — Hôtels Tunisie — 15 hôtels ciblés toutes villes
+// VERSION 9 — Dynamic industry (multi-sector)
 
 const Groq = require('groq-sdk');
 
@@ -13,7 +13,7 @@ class ExtractionService {
     this.timeoutMs     = 30000;
   }
 
-  async extractProjectInfo(businessIdea, marketCategory, competitorsHint = []) {
+  async extractProjectInfo(businessIdea, marketCategory, competitorsHint = [], targetCountry = 'Tunisie') {
     let lastError;
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
@@ -22,24 +22,26 @@ class ExtractionService {
       try {
         console.log(`🤖 Extraction LLM — tentative ${attempt}/${this.maxRetries} (${model})`);
 
-        const extracted = await this._callGroq(businessIdea, marketCategory, competitorsHint, model);
+        const extracted = await this._callGroq(businessIdea, marketCategory, competitorsHint, targetCountry, model);
 
-        extracted.industry        = 'Tourism & Hotels';
-        extracted.country         = 'Tunisie';
-        extracted.marketCategory  = marketCategory;
+        // When marketCategory is empty, trust the LLM's detected industry
+        extracted.industry        = marketCategory.trim() || extracted.industry || 'General';
+        extracted.country         = targetCountry.trim() || 'Tunisie';
+        extracted.marketCategory  = marketCategory.trim() || extracted.industry;
         extracted.competitorsHint = competitorsHint;
 
-        extracted.keywords      = this._enrichKeywords(extracted.keywords);
-        extracted.searchQueries = this._enrichQueries(extracted.searchQueries, competitorsHint);
-        extracted.industryTerms = this._getIndustryTerms();
+        // Enrich queries with competitor hints only
+        const catForHints = extracted.marketCategory || extracted.industry || '';
+        extracted.searchQueries = this._enrichWithHints(extracted.searchQueries, competitorsHint, catForHints);
 
         this._validate(extracted);
 
         console.log('✅ Extraction LLM réussie:', extracted.name);
         console.log(`   industry       : ${extracted.industry}`);
         console.log(`   marketCategory : ${extracted.marketCategory}`);
+        console.log(`   country        : ${extracted.country}`);
         console.log(`   keywords       : ${extracted.keywords.slice(0, 5).join(', ')}...`);
-        console.log(`   → ${extracted.searchQueries.length} queries optimisées hôtels`);
+        console.log(`   → ${extracted.searchQueries.length} queries`);
         return extracted;
 
       } catch (error) {
@@ -53,125 +55,27 @@ class ExtractionService {
   }
 
   // ═══════════════════════════════════════════════════════
-  // KEYWORDS — HÔTELS TUNISIE UNIQUEMENT
+  // ENRICHISSEMENT — hints utilisateur seulement
   // ═══════════════════════════════════════════════════════
 
-  _enrichKeywords(llmKeywords) {
-    const HOTEL_KEYWORDS = [
-      // FR — types d'hôtels
-      'hotel', 'hôtel', 'resort', 'palace', 'spa',
-      'thalasso', 'luxe', '5 étoiles', '4 étoiles',
-      'séjour', 'bien-être', 'piscine',
-      // EN
-      'luxury', 'beachfront', 'suites', 'accommodation',
-      // AR — hôtels uniquement
-      'فندق', 'منتجع', 'إقامة', 'فنادق',
-    ];
-
-    // Mots INTERDITS — maisons d'hôtes, boutiques, blogs
-    const FORBIDDEN = new Set([
-      'tourisme', 'voyage', 'hôtellerie', 'tourism', 'travel',
-      'maison', 'dar', 'riad', 'villa', 'gîte', 'chambre',
-      'boutique', 'homestay', 'airbnb', 'location',
-      'دار', 'منزل', 'شاليه', 'بيت',
-      'agence', 'réservation', 'booking',
-    ]);
-
-    const combined = new Set([...llmKeywords, ...HOTEL_KEYWORDS]);
-    FORBIDDEN.forEach(w => combined.delete(w));
-
-    return Array.from(combined)
-      .map(k => k.toLowerCase().trim())
-      .filter(k => k.length > 1)
-      .slice(0, 15);
-  }
-
-  // ═══════════════════════════════════════════════════════
-  // SEARCH QUERIES — 20 QUERIES CIBLÉES SUR LES 15 HÔTELS
-  // ═══════════════════════════════════════════════════════
-
-  _enrichQueries(llmQueries, competitorsHint) {
-    const queries = [
-
-      // ── TUNIS / GAMMARTH — Instagram ─────────────────────
-      'four seasons hotel tunis instagram',
-      'the residence tunis gammarth instagram',
-      'movenpick hotel lac tunis instagram',
-      'movenpick hotel gammarth instagram',
-      'sheraton tunis hotel instagram',
-      'el mouradi gammarth hotel instagram',
-
-      // ── TUNIS / GAMMARTH — Facebook ──────────────────────
-      'four seasons hotel tunis facebook',
-      'movenpick lac tunis facebook',
-      'sheraton tunis hotel facebook',
-      'el mouradi gammarth facebook',
-
-      // ── HAMMAMET ─────────────────────────────────────────
-      'hasdrubal thalassa hammamet facebook',
-      'radisson blu resort hammamet instagram',
-      'laico hotel hammamet facebook',
-
-      // ── SOUSSE ───────────────────────────────────────────
-      'movenpick resort marine spa sousse instagram',
-      'movenpick sousse facebook',
-
-      // ── MONASTIR ─────────────────────────────────────────
-      'hilton skanes monastir instagram',
-      'hilton skanes monastir beach resort facebook',
-
-      // ── DJERBA ───────────────────────────────────────────
-      'hasdrubal prestige thalassa djerba instagram',
-      'hasdrubal prestige djerba facebook',
-
-      // ── TOZEUR ───────────────────────────────────────────
-      'anantara sahara tozeur resort instagram',
-      'anantara tozeur facebook',
-
-      // ── CHAÎNES MULTI-VILLES ──────────────────────────────
-      'el mouradi hotels tunisie instagram',
-      'el mouradi hotels tunisie facebook',
-      'iberostar tunisia instagram',
-      'iberostar tunisie facebook',
-
-      // ── ARABE ─────────────────────────────────────────────
-      'فندق تونس انستقرام',
-      'فنادق تونسية انستقرام',
-      'فندق حمامات انستقرام',
-      'فندق سوسة انستقرام',
-      'فندق جربة انستقرام',
-      'فنادق تونس فيسبوك',
-
-      // ── HINTS UTILISATEUR ─────────────────────────────────
-      ...competitorsHint.map(name => `${name} hotel tunisia instagram`),
-    ];
-
-    // Dédupliquer + limiter à 20
-    return [...new Set(queries)].slice(0, 20);
-  }
-
-  // ═══════════════════════════════════════════════════════
-  // INDUSTRY TERMS — URLs hôtels tunisiens
-  // ═══════════════════════════════════════════════════════
-
-  _getIndustryTerms() {
-    return [
-      'hotel', 'resort', 'palace', 'spa',
-      'thalasso', 'suites', 'فندق', 'منتجع',
-    ];
+  _enrichWithHints(llmQueries, competitorsHint, marketCategory) {
+    const hintQueries = competitorsHint.map(name =>
+      `${name} ${marketCategory.toLowerCase()} instagram`
+    );
+    return [...new Set([...llmQueries, ...hintQueries])].slice(0, 20);
   }
 
   // ═══════════════════════════════════════════════════════
   // APPEL GROQ
   // ═══════════════════════════════════════════════════════
 
-  async _callGroq(businessIdea, marketCategory, competitorsHint, model) {
+  async _callGroq(businessIdea, marketCategory, competitorsHint, targetCountry, model) {
     const response = await Promise.race([
       this.groq.chat.completions.create({
         model,
         messages: [
-          { role: 'system', content: this._buildSystemPrompt() },
-          { role: 'user',   content: this._buildUserPrompt(businessIdea, marketCategory, competitorsHint) },
+          { role: 'system', content: this._buildSystemPrompt(marketCategory, targetCountry) },
+          { role: 'user',   content: this._buildUserPrompt(businessIdea, marketCategory, competitorsHint, targetCountry) },
         ],
         response_format: { type: 'json_object' },
         temperature: 0.2,
@@ -182,82 +86,78 @@ class ExtractionService {
       ),
     ]);
 
-    return this._parseJSON(response.choices[0].message.content);
+    return this._parseJSON(response.choices[0].message.content, marketCategory, targetCountry);
   }
 
   // ═══════════════════════════════════════════════════════
-  // SYSTEM PROMPT
+  // SYSTEM PROMPT — générique par industrie
   // ═══════════════════════════════════════════════════════
 
-  _buildSystemPrompt() {
-    return `Tu es un expert en marketing hôtelier pour la Tunisie.
+  _buildSystemPrompt(marketCategory, targetCountry) {
+    const autoDetect = !marketCategory || !marketCategory.trim();
+    const industryLine = autoDetect
+      ? `INDUSTRIE : Détecte-la toi-même depuis la description du projet et indique-la dans le champ "industry" du JSON.`
+      : `INDUSTRIE CIBLE : ${marketCategory}`;
 
-OBJECTIF : Analyser un projet hôtelier et générer des données pour trouver les HÔTELS concurrents en Tunisie sur Instagram et Facebook.
+    return `Tu es un expert en marketing digital et en analyse de marché au ${targetCountry}.
 
-HÔTELS CIBLES en Tunisie (les plus actifs sur réseaux sociaux) :
-— Tunis/Gammarth : Four Seasons, The Residence, Movenpick Lac, Movenpick Gammarth, Sheraton, El Mouradi Gammarth
-— Hammamet      : Hasdrubal Thalassa, Radisson Blu, Laico Hammamet
-— Sousse        : Movenpick Resort & Marine Spa
-— Monastir      : Hilton Skanes Monastir
-— Djerba        : Hasdrubal Prestige
-— Tozeur        : Anantara Sahara
-— Chaînes       : El Mouradi Hotels, Iberostar Tunisia
+OBJECTIF : Analyser un projet business et générer des données structurées pour identifier des concurrents sur Instagram et Facebook.
 
-RÈGLE ABSOLUE : Chercher UNIQUEMENT des HÔTELS 4★/5★ avec réception, restaurant, spa.
+${industryLine}
+PAYS CIBLE : ${targetCountry}
 
-INTERDIT :
-❌ Maisons d'hôtes, riads, dars, villas, gîtes, chambres d'hôtes, airbnb
-❌ Agences de voyage, tour-opérateurs, sites de réservation
-❌ Mots : tourisme, voyage, réservation, booking (retournent des agrégateurs)
+RÈGLES JSON STRICTES :
+- projectName : nom court et percutant pour le projet (2-5 mots)
+- industry : ${autoDetect ? 'nomme l\'industrie détectée (ex: "Fashion", "Restauration", "Beauté")' : `recopie exactement "${marketCategory}"`}
+- keywords : 8-12 mots-clés pertinents pour ce secteur. Courts, sans stopwords, sans noms propres.
+- searchQueries : 8-12 requêtes pour trouver des pages/comptes concurrents. Format : "nom_concurrent industrie instagram" ou "nom_concurrent ${targetCountry.toLowerCase()} facebook". Utilise des vrais noms d'entreprises.
+- industryTerms : 5-8 mots qu'on trouve dans les URLs ou noms de comptes sociaux du secteur
+- targetAudience : 3-5 segments de clients cibles réalistes
+- languages : langues utilisées dans ce marché (tableau JSON, ex: ["fr", "ar", "en"])
 
-RÈGLES JSON :
-- keywords : 8-10 mots hôtels uniquement. Obligatoire : hotel, resort, spa, luxury, فندق
-- searchQueries : 6-8 queries. TOUTES contiennent un nom d'hôtel précis + instagram ou facebook
-- industryTerms : mots dans URLs d'hôtels (hotel, resort, palace, spa, thalasso, suites)
-- targetAudience : clients d'hôtels tunisiens
+INTERDIT ABSOLUMENT :
+❌ Agrégateurs, répertoires, plateformes de réservation (booking, tripadvisor, yelp...)
+❌ Réseaux sociaux génériques (facebook.com, instagram.com) comme searchQuery
+❌ Inventer des noms de concurrents fictifs
 
-Réponds UNIQUEMENT en JSON valide.`;
+Réponds UNIQUEMENT en JSON valide, sans texte avant ou après.`;
   }
 
   // ═══════════════════════════════════════════════════════
-  // USER PROMPT
+  // USER PROMPT — paramétrique
   // ═══════════════════════════════════════════════════════
 
-  _buildUserPrompt(businessIdea, marketCategory, competitorsHint) {
-    let prompt = `Projet hôtelier à analyser :
+  _buildUserPrompt(businessIdea, marketCategory, competitorsHint, targetCountry) {
+    const autoDetect = !marketCategory || !marketCategory.trim();
+    let prompt = `Projet à analyser :
 
-Business Idea   : ${businessIdea}
-Market Category : ${marketCategory}
-Pays            : Tunisie
-Villes ciblées  : Tunis, Gammarth, Hammamet, Sousse, Monastir, Djerba, Tozeur`;
+Business Idea : ${businessIdea}
+Industrie     : ${autoDetect ? '[détecter depuis la description]' : marketCategory}
+Pays cible    : ${targetCountry}`;
 
     if (competitorsHint.length > 0) {
-      prompt += `\n\nHôtels concurrents connus : ${competitorsHint.join(', ')}
-→ Intègre ces noms dans les searchQueries`;
+      prompt += `\nConcurrents connus : ${competitorsHint.join(', ')}
+→ Intègre absolument ces noms dans les searchQueries`;
     }
 
     prompt += `
 
-Génère le JSON :
+Génère le JSON suivant (adapté au secteur ${marketCategory} au ${targetCountry}) :
 {
-  "projectName": "Hôtels Luxe Tunisie",
-  "industry": "Tourism & Hotels",
-  "keywords": ["hotel", "resort", "spa", "luxury", "thalasso", "5 étoiles", "فندق", "منتجع"],
+  "projectName": "Nom du Projet ${marketCategory}",
+  "industry": "${marketCategory}",
+  "keywords": ["mot1", "mot2", "mot3", "mot4", "mot5"],
   "searchQueries": [
-    "four seasons hotel tunis instagram",
-    "movenpick hotel lac tunis instagram",
-    "sheraton tunis hotel facebook",
-    "hilton skanes monastir instagram",
-    "el mouradi hotels tunisie instagram",
-    "فندق تونس انستقرام"
+    "concurrent1 ${marketCategory.toLowerCase()} instagram",
+    "concurrent2 ${targetCountry.toLowerCase()} facebook",
+    "meilleur ${marketCategory.toLowerCase()} ${targetCountry.toLowerCase()} instagram"
   ],
-  "industryTerms": ["hotel", "resort", "palace", "spa", "thalasso", "suites", "فندق"],
-  "targetAudience": ["Touristes étrangers", "Voyageurs d'affaires", "Familles tunisiennes", "Couples"],
+  "industryTerms": ["terme1", "terme2", "terme3"],
+  "targetAudience": ["Segment 1", "Segment 2", "Segment 3"],
   "languages": ["fr", "ar", "en"]
 }
 
-RAPPEL : Chaque searchQuery DOIT contenir le nom d'un hôtel précis de la liste + instagram ou facebook.
-Retourne UNIQUEMENT le JSON.`;
+Retourne UNIQUEMENT le JSON valide.`;
 
     return prompt;
   }
@@ -266,18 +166,19 @@ Retourne UNIQUEMENT le JSON.`;
   // PARSE + VALIDATE
   // ═══════════════════════════════════════════════════════
 
-  _parseJSON(content) {
+  _parseJSON(content, marketCategory, targetCountry) {
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
       return {
         name           : (parsed.projectName || parsed.name || '').trim(),
-        industry       : 'Tourism & Hotels',
-        country        : 'Tunisie',
-        marketCategory : '',
-        keywords       : (parsed.keywords || []).map(k => k.trim().toLowerCase()),
+        // When marketCategory is empty, use what the LLM detected
+        industry       : marketCategory.trim() || parsed.industry || 'General',
+        country        : targetCountry  || 'Tunisie',
+        marketCategory : marketCategory.trim() || parsed.industry || '',
+        keywords       : (parsed.keywords || []).map(k => k.trim().toLowerCase()).filter(k => k.length > 1),
         searchQueries  : parsed.searchQueries || [],
-        industryTerms  : (parsed.industryTerms || []).map(t => t.trim().toLowerCase()),
+        industryTerms  : (parsed.industryTerms || []).map(t => t.trim().toLowerCase()).filter(t => t.length > 1),
         targetAudience : parsed.targetAudience || [],
         languages      : parsed.languages || ['fr', 'ar', 'en'],
         competitorsHint: [],
@@ -289,11 +190,11 @@ Retourne UNIQUEMENT le JSON.`;
 
   _validate(data) {
     const errors = [];
-    if (!data.name || data.name.length < 2)                               errors.push('name manquant');
-    if (!Array.isArray(data.keywords)       || data.keywords.length < 4)  errors.push('keywords insuffisants');
-    if (!Array.isArray(data.searchQueries)  || data.searchQueries.length < 4) errors.push('searchQueries insuffisants');
-    if (!Array.isArray(data.targetAudience) || data.targetAudience.length < 1) errors.push('targetAudience manquant');
-    if (!Array.isArray(data.languages)      || data.languages.length < 1) errors.push('languages manquant');
+    if (!data.name || data.name.length < 2)                                    errors.push('name manquant');
+    if (!Array.isArray(data.keywords)      || data.keywords.length < 4)        errors.push('keywords insuffisants');
+    if (!Array.isArray(data.searchQueries) || data.searchQueries.length < 4)   errors.push('searchQueries insuffisants');
+    if (!Array.isArray(data.targetAudience)|| data.targetAudience.length < 1)  errors.push('targetAudience manquant');
+    if (!Array.isArray(data.languages)     || data.languages.length < 1)       errors.push('languages manquant');
     if (errors.length > 0) throw new Error(`Validation échouée: ${errors.join(', ')}`);
   }
 }

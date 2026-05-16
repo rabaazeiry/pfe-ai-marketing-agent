@@ -53,7 +53,13 @@ ROOT = Path(__file__).resolve().parents[1]
 # Make the sibling _verify_prose importable whether this file is run as a
 # script (its dir is sys.path[0]) or imported as a module (it may not be).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _verify_prose import verify_and_repair_prose  # noqa: E402
+from _verify_prose import (  # noqa: E402
+    verify_and_repair_prose,
+    _PCT_RE, _ER_CONTEXT, _ER_CONTEXT_CS, _to_number,
+)
+# Option C — hybrid selective architecture. Q1/Q4/Q5/Q8/Q10 are rendered
+# by deterministic templates (no LLM); Q2/Q3/Q6/Q7/Q9 stay on the LLM.
+from _template_modules import TEMPLATE_DISPATCH  # noqa: E402
 
 FACTS_DIR    = ROOT / "data" / "step4f_v6" / "facts"
 INSIGHTS_DIR = ROOT / "data" / "step4f_v6" / "insights"
@@ -63,6 +69,7 @@ LLM_MODEL    = "llama3.1:latest"
 TEMPERATURE  = 0.0   # Step D.1 — determinism > variety for a facts rephraser
 MAX_TOKENS   = 700
 TIMEOUT_S    = 180
+MAX_REPAIR_RETRIES = 2   # hard cap on LLM repair attempts (never loops)
 
 # ─────────────────────────────────────────────────────────────────────────
 # Module → question mapping
@@ -388,6 +395,97 @@ def _build_repair_prompt(critical: List[Dict[str, Any]]) -> str:
     )
 
 
+def _determ_er_repair(parsed: Dict[str, Any], facts_block: Any,
+                      facts: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """No-LLM, deterministic fix for residual ×100 engagement hallucinations.
+
+    For every "X%" in an engagement-rate context whose value exceeds the
+    industry's plausible ceiling (2×p95), try to map it back to a REAL facts
+    value: X/100 then X/1000. If the rescaled value exists verbatim in the
+    facts number-set, rewrite the token to that grounded value (this is the
+    common 0.12 → "12%" loss). If no facts value matches, the number is
+    pure invention and is replaced by « valeur indisponible » rather than
+    left wrong. Jury-safe: a corrected token always traces to facts.json."""
+    p95 = (facts.get("filter_summary") or {}).get("p95_cutoff_value")
+    if p95 is None:
+        return parsed, 0
+    ceiling = 2.0 * float(p95)
+
+    # STRICT facts set: exact + 2-dp forms only, zeros excluded. (The shared
+    # _facts_number_set rounds to 1 dp and emits "0", which would let a
+    # bogus 0.008 "match" 0.02 — exactly the degenerate we must avoid here.)
+    def _norm(x: float) -> str:
+        return f"{x:.4f}".rstrip("0").rstrip(".")
+
+    factset: set = set()
+
+    def _walk(o: Any) -> None:
+        if isinstance(o, bool):
+            return
+        if isinstance(o, (int, float)):
+            if abs(float(o)) > 1e-9:
+                factset.add(_norm(float(o)))
+                factset.add(_norm(round(float(o), 2)))
+        elif isinstance(o, dict):
+            for v in o.values():
+                _walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                _walk(v)
+
+    _walk(facts_block)
+    n_fixed = 0
+
+    def _fix_line(ln: str) -> str:
+        nonlocal n_fixed
+        if not (_ER_CONTEXT.search(ln) or _ER_CONTEXT_CS.search(ln)):
+            return ln
+
+        def _repl(m: "re.Match") -> str:
+            nonlocal n_fixed
+            val = _to_number(m.group(1))
+            if val is None or val <= ceiling:
+                return m.group(0)
+            for div in (100.0, 1000.0):
+                cand = val / div
+                keys = {_norm(cand), _norm(round(cand, 2))}
+                if keys & factset:
+                    n_fixed += 1
+                    return f"{_norm(cand)}%"
+            n_fixed += 1
+            return "valeur indisponible"
+
+        return _PCT_RE.sub(_repl, ln)
+
+    def _fix_text(t: str) -> str:
+        return "\n".join(_fix_line(l) for l in t.split("\n"))
+
+    parsed["answer"] = _fix_text(parsed.get("answer", ""))
+    parsed["evidence"] = [_fix_text(x) for x in parsed.get("evidence", [])]
+    parsed["actionable_recommendations"] = [
+        _fix_text(x) for x in parsed.get("actionable_recommendations", [])
+    ]
+    return parsed, n_fixed
+
+
+def _template_one(industry: str, q: Dict[str, str], facts: Dict[str, Any]
+                  ) -> Tuple[Dict[str, Any], str, float, List[float], List[Dict[str, Any]]]:
+    """Deterministic template path (no LLM). Renders the module from
+    facts.json, then runs BOTH verifiers for reporting only — never the
+    repair loop. The templates are clean by construction, so a non-zero
+    critical here is a real regression worth surfacing in the dashboard."""
+    facts_block = _block_for_module(facts, q["module"])
+    parsed = TEMPLATE_DISPATCH[q["module"]](facts)
+    combined = _combined_prose(parsed)
+    _, bad_nums = _verify_prose(combined, facts_block)
+    _, validator_issues = verify_and_repair_prose(
+        combined, facts_block, industry, full_facts=facts)
+    n_crit = sum(1 for i in validator_issues
+                 if i.get("severity") == "critical")
+    status = "TEMPLATE" if n_crit == 0 else f"TEMPLATE_CRIT: {n_crit} critical"
+    return parsed, status, 0.0, bad_nums, validator_issues
+
+
 def rephrase_one(llm, industry: str, q: Dict[str, str], facts: Dict[str, Any]
                  ) -> Tuple[Dict[str, Any], str, float, List[float], List[Dict[str, Any]]]:
     """Run a single LLM call for one question. Returns (parsed_prose,
@@ -399,6 +497,10 @@ def rephrase_one(llm, industry: str, q: Dict[str, str], facts: Dict[str, Any]
     called exactly ONCE more (hard cap, never loops). The retry is kept only
     if it has strictly fewer critical issues; otherwise the first answer is
     kept and every issue is logged."""
+    # Option C: templated modules never touch the LLM.
+    if q["module"] in TEMPLATE_DISPATCH:
+        return _template_one(industry, q, facts)
+
     facts_block = _block_for_module(facts, q["module"])
     facts_block_json = json.dumps(facts_block, ensure_ascii=False, indent=2)
 
@@ -433,34 +535,87 @@ def rephrase_one(llm, industry: str, q: Dict[str, str], facts: Dict[str, Any]
         _combined_prose(parsed), facts_block, industry, full_facts=facts)
     critical = [i for i in validator_issues if i.get("severity") == "critical"]
 
-    # 3. At most ONE repair retry, kept only if it strictly improves.
+    # 3. Up to MAX_REPAIR_RETRIES LLM repair attempts; always keep the best
+    #    (fewest criticals) seen so far. Hard-capped — never loops.
+    n_retries = 0
     if critical:
-        try:
-            resp2 = llm.invoke(full + _build_repair_prompt(critical))
-            parsed2 = _parse_prose(resp2)
-            if parsed2.get("answer") and len(parsed2["answer"]) >= 20:
-                _, bad2 = _verify_prose(_combined_prose(parsed2), facts_block)
-                _, issues2 = verify_and_repair_prose(
-                    _combined_prose(parsed2), facts_block, industry,
-                    full_facts=facts)
-                crit2 = [i for i in issues2 if i.get("severity") == "critical"]
-                if len(crit2) < len(critical):
-                    parsed, bad_nums = parsed2, bad2
-                    validator_issues, critical = issues2, crit2
-                    status = f"REPAIRED: {len(crit2)} critical left"
-                else:
-                    status = f"REPAIR_FAILED: {len(critical)} critical kept"
-        except Exception as e:  # noqa: BLE001
-            status = f"REPAIR_ERROR: {e}"
+        for _ in range(MAX_REPAIR_RETRIES):
+            if not critical:
+                break
+            n_retries += 1
+            try:
+                resp_r = llm.invoke(full + _build_repair_prompt(critical))
+            except Exception as e:  # noqa: BLE001
+                status = f"REPAIR_ERROR: {e}"
+                break
+            parsed_r = _parse_prose(resp_r)
+            if not parsed_r.get("answer") or len(parsed_r["answer"]) < 20:
+                continue
+            _, bad_r = _verify_prose(_combined_prose(parsed_r), facts_block)
+            _, issues_r = verify_and_repair_prose(
+                _combined_prose(parsed_r), facts_block, industry,
+                full_facts=facts)
+            crit_r = [i for i in issues_r if i.get("severity") == "critical"]
+            if len(crit_r) < len(critical):
+                parsed, bad_nums = parsed_r, bad_r
+                validator_issues, critical = issues_r, crit_r
+        status = (f"REPAIRED: {len(critical)} critical left"
+                  if not status.startswith("REPAIR_ERROR")
+                  else status)
 
-    if critical and not status.startswith(("REPAIR", )):
-        status = f"VALIDATOR_CRIT: {len(critical)} critical"
-    elif critical and status == "OK":
-        status = f"VALIDATOR_CRIT: {len(critical)} critical"
-    if bad_nums and status == "OK":
+    # 4. Deterministic, no-LLM fix for any ×100 engagement value the LLM
+    #    still produced. This guarantees zero residual er_bounds errors.
+    n_determ = 0
+    if any(i.get("validator") == "er_bounds_check" for i in critical):
+        parsed, n_determ = _determ_er_repair(parsed, facts_block, facts)
+        if n_determ:
+            _, bad_nums = _verify_prose(_combined_prose(parsed), facts_block)
+            _, validator_issues = verify_and_repair_prose(
+                _combined_prose(parsed), facts_block, industry,
+                full_facts=facts)
+            critical = [i for i in validator_issues
+                        if i.get("severity") == "critical"]
+
+    # 5. Final status.
+    bits = []
+    if n_retries:
+        bits.append(f"retry×{n_retries}")
+    if n_determ:
+        bits.append(f"er_determ×{n_determ}")
+    if critical:
+        bits.append(f"{len(critical)}crit")
+    if status.startswith("REPAIR_ERROR"):
+        pass
+    elif critical:
+        status = "VALIDATOR_CRIT: " + " ".join(bits)
+    elif bits:
+        status = "REPAIRED: " + " ".join(bits)
+    elif bad_nums:
         status = f"VERIFY_WARN: {len(bad_nums)} unverified numbers"
+    else:
+        status = "OK"
 
     return parsed, status, latency, bad_nums, validator_issues
+
+
+def _make_question_entry(q: Dict[str, str], parsed: Dict[str, Any],
+                         status: str, latency: float, bad: List[float],
+                         validator_issues: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """The per-question dashboard record. Shared by the full run and the
+    --rerun-flagged path so both write an identical schema."""
+    return {
+        "question_id":                q["id"],
+        "question_title":             q["title"],
+        "source_module":              q["module"],
+        "answer":                     parsed.get("answer", ""),
+        "evidence":                   parsed.get("evidence", []),
+        "actionable_recommendations": parsed.get("actionable_recommendations", []),
+        "insights":                   _synth_legacy_insights(parsed),
+        "status":                     status,
+        "latency_seconds":            round(latency, 2),
+        "unverified_numbers":         bad,
+        "validator_issues":           validator_issues,
+    }
 
 
 def _synth_legacy_insights(parsed: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -476,6 +631,137 @@ def _synth_legacy_insights(parsed: Dict[str, Any]) -> List[Dict[str, str]]:
     return out
 
 
+def rerun_flagged(llm, industries: List[str]) -> int:
+    """Re-generate ONLY the questions whose stored prose still has a critical
+    issue under the (now precise) verifier. Clean questions are left as-is —
+    their validator_issues are merely refreshed with the fixed verifier so
+    the dashboard shows accurate flags. ~one-quarter the cost of a full run."""
+    qdef = {q["id"]: q for q in QUESTIONS}
+    print("=" * 78)
+    print("rephrase_facts.py --rerun-flagged  (regenerate only flagged Qs)")
+    print("=" * 78)
+    grand_regen = 0
+    grand_calls = 0
+    t0 = time.time()
+    for ind in industries:
+        facts_path = FACTS_DIR / f"facts_{ind}.json"
+        ins_path = INSIGHTS_DIR / f"insights_{ind}.json"
+        if not facts_path.exists() or not ins_path.exists():
+            print(f"  ⚠  skip {ind}: missing facts or insights")
+            continue
+        facts = json.loads(facts_path.read_text(encoding="utf-8"))
+        env = json.loads(ins_path.read_text(encoding="utf-8"))
+        print(f"\n[{ind.upper()}]  ({facts['n_posts_kept']} posts kept)")
+        print("-" * 78)
+        regen = 0
+        for idx, qe in enumerate(env.get("questions", [])):
+            q = qdef.get(qe.get("question_id"))
+            if q is None:
+                continue
+            block = _block_for_module(facts, q["module"])
+            prose = (qe.get("answer", "") + "\n"
+                     + "\n".join(qe.get("evidence", [])) + "\n"
+                     + "\n".join(qe.get("actionable_recommendations", [])))
+            _, iss = verify_and_repair_prose(prose, block, ind, full_facts=facts)
+            crit = [i for i in iss if i.get("severity") == "critical"]
+            if not crit:
+                qe["validator_issues"] = iss          # refresh, no LLM
+                print(f"  Q{idx+1:>2}/10  {q['title']:<24}  KEEP   (clean)")
+                continue
+            before = len(crit)
+            parsed, status, latency, bad, vissues = rephrase_one(
+                llm, ind, q, facts)
+            grand_calls += 1
+            after = sum(1 for i in vissues if i.get("severity") == "critical")
+            env["questions"][idx] = _make_question_entry(
+                q, parsed, status, latency, bad, vissues)
+            regen += 1
+            print(f"  Q{idx+1:>2}/10  {q['title']:<24}  REGEN  "
+                  f"crit {before}→{after}  {status}")
+        env["generated_at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        ins_path.write_text(json.dumps(env, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+        grand_regen += regen
+        print(f"  → {ins_path.name}  ({regen} regenerated)")
+    print()
+    print("=" * 78)
+    print(f"rerun-flagged complete: {grand_regen} questions regenerated, "
+          f"{grand_calls} hit the LLM, {(time.time()-t0)/60:.1f} min")
+    print("=" * 78)
+    return 0
+
+
+def apply_templates(industries: List[str]) -> int:
+    """No-LLM in-place pass. Replaces ONLY the templated questions
+    (Q1/Q4/Q5/Q8/Q10) in each existing insights_<industry>.json with
+    fresh deterministic template output, refreshes validator_issues on
+    the untouched LLM questions, and rewrites the file. The working LLM
+    prose for Q2/Q3/Q6/Q7/Q9 is preserved verbatim — Ollama is never
+    contacted. This is the jury-safe regeneration path."""
+    qdef = {q["module"]: q for q in QUESTIONS}
+    print("=" * 78)
+    print("rephrase_facts.py --apply-templates  (deterministic, no LLM)")
+    print("=" * 78)
+    grand_tmpl = 0
+    grand_crit = 0
+    for ind in industries:
+        facts_path = FACTS_DIR / f"facts_{ind}.json"
+        ins_path = INSIGHTS_DIR / f"insights_{ind}.json"
+        if not facts_path.exists() or not ins_path.exists():
+            print(f"  ⚠  skip {ind}: missing facts or insights")
+            continue
+        facts = json.loads(facts_path.read_text(encoding="utf-8"))
+        env = json.loads(ins_path.read_text(encoding="utf-8"))
+        print(f"\n[{ind.upper()}]  ({facts['n_posts_kept']} posts kept)")
+        print("-" * 78)
+        n_tmpl = 0
+        for idx, qe in enumerate(env.get("questions", [])):
+            q = qdef.get(qe.get("source_module")) or next(
+                (qq for qq in QUESTIONS
+                 if qq["id"] == qe.get("question_id")), None)
+            if q is None:
+                continue
+            if q["module"] in TEMPLATE_DISPATCH:
+                parsed, status, latency, bad, vissues = _template_one(
+                    ind, q, facts)
+                crit = sum(1 for i in vissues
+                           if i.get("severity") == "critical")
+                grand_crit += crit
+                env["questions"][idx] = _make_question_entry(
+                    q, parsed, status, latency, bad, vissues)
+                n_tmpl += 1
+                print(f"  Q{idx+1:>2}/10  {q['title']:<24}  TMPL   "
+                      f"crit={crit}  {status}")
+            else:
+                # Refresh validator flags on the kept LLM answer (no LLM).
+                block = _block_for_module(facts, q["module"])
+                prose = (qe.get("answer", "") + "\n"
+                         + "\n".join(qe.get("evidence", [])) + "\n"
+                         + "\n".join(qe.get("actionable_recommendations", [])))
+                _, iss = verify_and_repair_prose(
+                    prose, block, ind, full_facts=facts)
+                qe["validator_issues"] = iss
+                crit = sum(1 for i in iss
+                           if i.get("severity") == "critical")
+                grand_crit += crit
+                print(f"  Q{idx+1:>2}/10  {q['title']:<24}  KEEP   "
+                      f"crit={crit}  (LLM, refreshed)")
+        env["generated_at"] = time.strftime("%Y-%m-%d %H:%M:%S",
+                                            time.gmtime())
+        env["template_modules"] = sorted(TEMPLATE_DISPATCH.keys())
+        ins_path.write_text(json.dumps(env, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+        grand_tmpl += n_tmpl
+        print(f"  → {ins_path.name}  ({n_tmpl} templated, "
+              f"{len(env.get('questions', []))-n_tmpl} LLM kept)")
+    print()
+    print("=" * 78)
+    print(f"apply-templates complete: {grand_tmpl} templated entries, "
+          f"{grand_crit} CRITICAL across all questions")
+    print("=" * 78)
+    return 0
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────
@@ -483,10 +769,21 @@ def _synth_legacy_insights(parsed: Dict[str, Any]) -> List[Dict[str, str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="LLM rephrasing of facts.json into French prose")
     parser.add_argument("--industry", choices=INDUSTRIES + ["all"], default="all")
+    parser.add_argument("--rerun-flagged", action="store_true",
+                        help="only regenerate questions whose stored prose "
+                             "still has a critical issue (cheap targeted pass)")
+    parser.add_argument("--apply-templates", action="store_true",
+                        help="deterministic, no-LLM: rewrite only the "
+                             "templated questions (Q1/Q4/Q5/Q8/Q10) in "
+                             "existing insights files, keep LLM answers")
     args = parser.parse_args()
     industries = INDUSTRIES if args.industry == "all" else [args.industry]
 
     INSIGHTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # No-LLM path: do this before importing/contacting Ollama.
+    if args.apply_templates:
+        return apply_templates(industries)
 
     print("=" * 78)
     print(f"rephrase_facts.py — facts.json → French dashboard prose")
@@ -502,6 +799,9 @@ def main() -> int:
         timeout=TIMEOUT_S,
     )
     print(f"  llm={LLM_MODEL}, temp={TEMPERATURE}")
+
+    if args.rerun_flagged:
+        return rerun_flagged(llm, industries)
 
     total_calls = 0
     total_time = 0.0
@@ -539,10 +839,11 @@ def main() -> int:
 
             n_crit = sum(1 for i in validator_issues
                          if i.get("severity") == "critical")
-            if status == "OK":
+            if status == "OK" or status == "TEMPLATE":
                 ok_count += 1
-                tag = "OK    "
-            elif status.startswith(("VERIFY_WARN", "VALIDATOR_CRIT", "REPAIR")):
+                tag = "TMPL  " if status == "TEMPLATE" else "OK    "
+            elif status.startswith(("VERIFY_WARN", "VALIDATOR_CRIT",
+                                     "REPAIR", "TEMPLATE_CRIT")):
                 warn_count += 1
                 tag = "WARN  "
             else:  # LLM_ERROR / PARSE_FAIL → deterministic fallback used
@@ -552,19 +853,8 @@ def main() -> int:
                   f"answer={len(parsed.get('answer',''))} chars  latency={latency:5.1f}s  "
                   f"unverified={len(bad)}  crit={n_crit}")
 
-            envelope["questions"].append({
-                "question_id":              q["id"],
-                "question_title":           q["title"],
-                "source_module":            q["module"],
-                "answer":                   parsed.get("answer", ""),
-                "evidence":                 parsed.get("evidence", []),
-                "actionable_recommendations": parsed.get("actionable_recommendations", []),
-                "insights":                 _synth_legacy_insights(parsed),
-                "status":                   status,
-                "latency_seconds":          round(latency, 2),
-                "unverified_numbers":       bad,
-                "validator_issues":         validator_issues,
-            })
+            envelope["questions"].append(_make_question_entry(
+                q, parsed, status, latency, bad, validator_issues))
 
         out_file = INSIGHTS_DIR / f"insights_{ind}.json"
         out_file.write_text(json.dumps(envelope, ensure_ascii=False, indent=2),

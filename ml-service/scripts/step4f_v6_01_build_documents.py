@@ -53,6 +53,17 @@ def load_data() -> Dict:
     v5c["post_id"]    = v5c["post_id"].astype(str)
     v6_pred["post_id"] = v6_pred["post_id"].astype(str)
 
+    # engagement_rate is stored in percent units by the Apify scraper
+    # ((likes+comments)/followers*100). If this invariant breaks the
+    # display formatter (_eng_str) must be re-audited — silently rendering
+    # fractions as percents (or vice versa) caused the historical
+    # "Tuesday=318%" bug. See tests/test_engagement_formatter.py.
+    er_p999 = float(master["engagement_rate"].quantile(0.999))
+    assert er_p999 < 100, (
+        f"engagement_rate appears mis-scaled (p99.9={er_p999:.2f}); "
+        "the display formatter must be checked before building documents."
+    )
+
     with open(TOPICS_YAML, "r", encoding="utf-8") as f:
         topics = yaml.safe_load(f)["topics"]
 
@@ -119,9 +130,12 @@ def _safe_pct(num: float, den: float) -> str:
 
 
 def _eng_str(x) -> str:
+    # engagement_rate is already a percentage (Apify computes
+    # (likes+comments)/followers*100 — see backend/src/services/apify.service.js).
+    # Do NOT multiply by 100 again; tests/test_engagement_formatter.py pins this.
     if x is None or (isinstance(x, float) and np.isnan(x)):
         return "—"
-    return f"{x*100:.2f}%"
+    return f"{x:.2f}%"
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -279,7 +293,7 @@ def build_doc3_content_strategy(industry: str, df_ind: pd.DataFrame, topics: Dic
             if 0 in vals.index and 1 in vals.index:
                 lift = (vals[1] - vals[0])
                 lines.append(f"- {col}: ON={_eng_str(vals[1])}, OFF={_eng_str(vals[0])}, "
-                             f"lift={lift*100:+.2f}pp (n_on={int((df_ind[col]==1).sum())}, "
+                             f"lift={lift:+.2f}pp (n_on={int((df_ind[col]==1).sum())}, "
                              f"n_off={int((df_ind[col]==0).sum())}).")
     return "\n".join(lines)
 
@@ -288,40 +302,51 @@ def build_doc4_timing(industry: str, df_ind: pd.DataFrame) -> str:
     lines = []
     lines.append(f"# Timing & Cadence — {industry.capitalize()}")
     lines.append("")
+    lines.append("_Engagement is heavily right-skewed (a few viral posts dominate the mean), "
+                 "so we rank by **median** and show both median and mean for transparency._")
+    lines.append("")
     g = df_ind.copy()
     if "published_at" in g.columns:
-        g["dow"]  = pd.to_datetime(g["published_at"], errors="coerce", utc=True).dt.dayofweek
-        g["hour_published"] = pd.to_datetime(g["published_at"], errors="coerce", utc=True).dt.hour
+        # Convert UTC timestamps to Africa/Tunis so day-of-week and hour
+        # buckets reflect local audience behaviour (a 23:30 Monday Tunis
+        # post is otherwise misbucketed as Tuesday UTC).
+        ts_tunis = pd.to_datetime(g["published_at"], errors="coerce", utc=True).dt.tz_convert("Africa/Tunis")
+        g["dow"]  = ts_tunis.dt.dayofweek
+        g["hour_published"] = ts_tunis.dt.hour
 
-    # Best 3 days
+    # Best 3 days — rank by median (robust to viral outliers)
     if "dow" in g.columns and g["dow"].notna().any():
-        dow_eng = g.groupby("dow")["engagement_rate"].agg(["mean", "count"]).sort_values("mean", ascending=False)
-        lines.append("**Best days of week** (mean engagement, post count):")
+        dow_eng = (g.groupby("dow")["engagement_rate"]
+                    .agg(["median", "mean", "count"])
+                    .sort_values("median", ascending=False))
+        lines.append("**Best days of week** (median engagement, mean for reference, post count):")
         for dow, row in dow_eng.head(3).iterrows():
             try:
                 day_name = DAY_FR[int(dow)]
             except Exception:
                 day_name = f"day {dow}"
-            lines.append(f"- {day_name}: mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
+            lines.append(f"- {day_name}: median {_eng_str(row['median'])}, "
+                         f"mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
         lines.append("")
-        lines.append("**Worst days of week** (lowest engagement):")
+        lines.append("**Worst days of week** (lowest median engagement):")
         for dow, row in dow_eng.tail(2).iterrows():
             try:
                 day_name = DAY_FR[int(dow)]
             except Exception:
                 day_name = f"day {dow}"
-            lines.append(f"- {day_name}: mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
+            lines.append(f"- {day_name}: median {_eng_str(row['median'])}, "
+                         f"mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
 
-    # Best 3 hours
+    # Best 3 hours — rank by median (≥5 posts)
     if "hour_published" in g.columns and g["hour_published"].notna().any():
-        hr = g.groupby("hour_published")["engagement_rate"].agg(["mean", "count"])
-        # Filter hours with at least 5 posts to avoid noise
-        hr = hr[hr["count"] >= 5].sort_values("mean", ascending=False)
+        hr = g.groupby("hour_published")["engagement_rate"].agg(["median", "mean", "count"])
+        hr = hr[hr["count"] >= 5].sort_values("median", ascending=False)
         if len(hr) > 0:
             lines.append("")
-            lines.append("**Best hours** (≥5 posts, mean engagement):")
+            lines.append("**Best hours** (≥5 posts, by median engagement):")
             for h, row in hr.head(3).iterrows():
-                lines.append(f"- {int(h):02d}h: mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
+                lines.append(f"- {int(h):02d}h: median {_eng_str(row['median'])}, "
+                             f"mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
 
     # Posting frequency — posts per active week per brand
     if "published_at" in g.columns:
@@ -341,7 +366,7 @@ def build_doc4_timing(industry: str, df_ind: pd.DataFrame) -> str:
             lines.append("")
             lines.append(f"**Weekend vs weekday**: weekend={_eng_str(wk[1])}, "
                          f"weekday={_eng_str(wk[0])}, "
-                         f"lift={ (wk[1]-wk[0])*100:+.2f}pp.")
+                         f"lift={ (wk[1]-wk[0]):+.2f}pp.")
 
     return "\n".join(lines)
 
@@ -349,6 +374,9 @@ def build_doc4_timing(industry: str, df_ind: pd.DataFrame) -> str:
 def build_doc5_hashtags(industry: str, df_ind: pd.DataFrame) -> str:
     lines = []
     lines.append(f"# Hashtag Strategy — {industry.capitalize()}")
+    lines.append("")
+    lines.append("_Ranked by **median** engagement to avoid skew from viral outliers; "
+                 "mean shown alongside for reference._")
     lines.append("")
     g = df_ind.copy()
 
@@ -362,23 +390,25 @@ def build_doc5_hashtags(industry: str, df_ind: pd.DataFrame) -> str:
                 rows.append((t.lower(), float(e)))
     if rows:
         df_h = pd.DataFrame(rows, columns=["tag", "eng"])
-        agg = df_h.groupby("tag")["eng"].agg(["mean", "count"])
+        agg = df_h.groupby("tag")["eng"].agg(["median", "mean", "count"])
         # Tags with ≥5 occurrences only
-        agg = agg[agg["count"] >= 5].sort_values("mean", ascending=False)
+        agg = agg[agg["count"] >= 5].sort_values("median", ascending=False)
 
-        lines.append("**Top 30 hashtags by mean engagement** (≥5 occurrences):")
+        lines.append("**Top 30 hashtags by median engagement** (≥5 occurrences):")
         for tag, row in agg.head(30).iterrows():
-            lines.append(f"- #{tag}: {_eng_str(row['mean'])}, n={int(row['count'])}.")
+            lines.append(f"- #{tag}: median {_eng_str(row['median'])}, "
+                         f"mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
 
     # Optimal hashtag count
     if "hashtags_count" in g.columns:
         bins = pd.cut(g["hashtags_count"], bins=[-0.5, 0, 3, 6, 10, 30],
                        labels=["0", "1-3", "4-6", "7-10", "11+"])
-        hc = g.groupby(bins, observed=True)["engagement_rate"].agg(["mean", "count"])
+        hc = g.groupby(bins, observed=True)["engagement_rate"].agg(["median", "mean", "count"])
         lines.append("")
         lines.append("**Engagement by hashtag-count bucket**:")
         for b, row in hc.iterrows():
-            lines.append(f"- {b} tags: mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
+            lines.append(f"- {b} tags: median {_eng_str(row['median'])}, "
+                         f"mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
     return "\n".join(lines)
 
 
@@ -386,24 +416,31 @@ def build_doc6_visual(industry: str, df_ind: pd.DataFrame) -> str:
     lines = []
     lines.append(f"# Visual Strategy — {industry.capitalize()}")
     lines.append("")
+    lines.append("_Ranked by **median** engagement (robust to viral outliers); "
+                 "mean shown alongside for reference._")
+    lines.append("")
     g = df_ind.copy()
 
-    # Image vs video performance
-    by_ct = g.groupby("content_type")["engagement_rate"].agg(["mean", "count"]).sort_values("mean", ascending=False)
-    lines.append("**Format performance** (mean engagement, n):")
+    # Image vs video performance — rank by median
+    by_ct = (g.groupby("content_type")["engagement_rate"]
+              .agg(["median", "mean", "count"])
+              .sort_values("median", ascending=False))
+    lines.append("**Format performance** (by median engagement):")
     for ct, row in by_ct.iterrows():
-        lines.append(f"- {ct}: mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
+        lines.append(f"- {ct}: median {_eng_str(row['median'])}, "
+                     f"mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
 
-    # Slide count for carousel
+    # Slide count for carousel — rank by median (≥3 posts per bucket)
     if "slide_count" in g.columns:
         car = g[g["content_type"] == "carousel"]
         if len(car):
-            sc = car.groupby("slide_count")["engagement_rate"].agg(["mean", "count"])
-            sc = sc[sc["count"] >= 3].sort_values("mean", ascending=False).head(5)
+            sc = car.groupby("slide_count")["engagement_rate"].agg(["median", "mean", "count"])
+            sc = sc[sc["count"] >= 3].sort_values("median", ascending=False).head(5)
             lines.append("")
-            lines.append("**Optimal carousel slide count** (≥3 posts per bucket, top 5 by mean engagement):")
+            lines.append("**Optimal carousel slide count** (≥3 posts per bucket, top 5 by median engagement):")
             for sc_n, row in sc.iterrows():
-                lines.append(f"- {int(sc_n)} slides: {_eng_str(row['mean'])}, n={int(row['count'])}.")
+                lines.append(f"- {int(sc_n)} slides: median {_eng_str(row['median'])}, "
+                             f"mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
 
     # CLIP centroids: top vs bottom quintile
     clip_cols = [c for c in g.columns if c.startswith("clip_pc")]
@@ -421,12 +458,15 @@ def build_doc6_visual(industry: str, df_ind: pd.DataFrame) -> str:
                 lines.append(f"- {col}: |Δ|={val:.3f}, sign={d} (high vs low quintile).")
 
     if "clip_n_assets" in g.columns:
-        ca = g.groupby("clip_n_assets")["engagement_rate"].agg(["mean", "count"]).sort_values("mean", ascending=False)
+        ca = (g.groupby("clip_n_assets")["engagement_rate"]
+               .agg(["median", "mean", "count"])
+               .sort_values("median", ascending=False))
         ca = ca[ca["count"] >= 5].head(3)
         lines.append("")
-        lines.append("**Best n_assets buckets** (≥5 posts, mean engagement):")
+        lines.append("**Best n_assets buckets** (≥5 posts, by median engagement):")
         for n, row in ca.iterrows():
-            lines.append(f"- {int(n)} visual assets: {_eng_str(row['mean'])}, n={int(row['count'])}.")
+            lines.append(f"- {int(n)} visual assets: median {_eng_str(row['median'])}, "
+                         f"mean {_eng_str(row['mean'])}, n={int(row['count'])}.")
     return "\n".join(lines)
 
 
@@ -471,7 +511,7 @@ def build_doc7_engagement_tactics(industry: str, df_ind: pd.DataFrame) -> str:
                 lines.append("")
                 lines.append(f"**{label}**: ON n={len(on)} mean {_eng_str(on['engagement_rate'].mean())}, "
                              f"OFF n={len(off)} mean {_eng_str(off['engagement_rate'].mean())}, "
-                             f"lift={lift*100:+.2f}pp.")
+                             f"lift={lift:+.2f}pp.")
                 top_on = on.sort_values("engagement_rate", ascending=False).head(2)
                 for _, r in top_on.iterrows():
                     lines.append(f"  - example: {r['username']} — «{_truncate(r.get('caption_clean',''),120)}»")

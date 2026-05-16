@@ -5,6 +5,8 @@ import { createProject, type Project } from './api';
 export type CreateProjectInput = {
   businessIdea: string;
   marketCategory: string;
+  targetCountry: string;
+  name?: string;
 };
 
 type MockFallbackOptions = {
@@ -23,8 +25,11 @@ function buildMockProject(input: CreateProjectInput): Project {
     _id: `mock-${Date.now()}`,
     businessIdea: input.businessIdea,
     marketCategory: input.marketCategory,
+    industry: input.marketCategory,
+    country: input.targetCountry,
+    name: input.name,
     status: 'draft',
-    pipelineStatus: 'step1_pending',
+    pipelineStatus: 'step1_extraction',
     createdAt: now
   };
 }

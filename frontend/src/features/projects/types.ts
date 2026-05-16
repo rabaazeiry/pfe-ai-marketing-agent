@@ -17,6 +17,8 @@ export type ProjectDetail = {
   industry?: string;
   country?: string;
   targetCountry?: string;
+  keywords?: string[];
+  targetAudience?: string[];
   status?: ProjectStatus;
   pipelineStatus?: PipelineBackendStatus;
   progressPercentage?: number;
@@ -33,12 +35,23 @@ export type CompetitorSocialMediaHandle = {
   followers?: number;
 };
 
+export type CompetitorClassification =
+  | 'local_leader'
+  | 'local_startup'
+  | 'international_leader'
+  | 'international_startup'
+  | 'leader'
+  | 'startup'
+  | string;
+
 export type CompetitorSummary = {
   _id: string;
   companyName: string;
   website?: string;
   description?: string;
+  classification?: CompetitorClassification;
   classificationMaturity?: 'startup' | 'leader';
+  classificationJustification?: string;
   isActive?: boolean;
   scrapingStatus?: ScrapingStatus;
   lastScrapedAt?: string;
@@ -88,12 +101,23 @@ export type RagInsightItem = {
 export type RagQuestionBlock = {
   question_id: string;
   question_title: string;
-  question_text: string;
-  retrieved_docs: string[];
-  insights: RagInsightItem[];
+  // The Step-4-rework pipeline (rephrase_facts.py → prose_v1 envelope)
+  // does not emit question_text or retrieved_docs: it answers from
+  // facts.json, not from RAG retrieval. Keep these optional so the UI
+  // works on both the legacy V6 RAG envelope and the new prose_v1 one.
+  question_text?: string;
+  retrieved_docs?: string[];
+  source_module?: string;            // present only in prose_v1
+  insights?: RagInsightItem[];
+  // V6 fields — rich structured output
+  answer?: string;
+  evidence?: string[];
+  actionable_recommendations?: string[];
+  ml_evidence?: string;
   raw_response?: string | null;
   status: string;
   latency_seconds: number;
+  unverified_numbers?: number[];     // present only in prose_v1
 };
 
 export type IndustryInsightsBundle = {

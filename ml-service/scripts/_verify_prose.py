@@ -97,13 +97,36 @@ _ENDORSE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Avoidance / negation: turns "utiliser X" into "éviter d'utiliser X". When
+# present on the line the sentence is NOT an endorsement (it advises the
+# opposite), so endorsing-a-negative-signal must NOT fire. It also lets us
+# catch the reverse error: discouraging a POSITIVE signal.
+_AVOID_RE = re.compile(
+    r"[ée]vit|r[ée]duir|moins\s+d|ne\s+pas|limit|diminu|supprim|baiss|"
+    r"d[ée]conseil|sans\s+|arr[êe]t",
+    re.IGNORECASE,
+)
+
+# Descriptive / evidentiary phrasing: the sentence reports a measured value
+# rather than prescribing an action. Such lines cannot be a contradictory
+# *recommendation*, so reco_direction_check ignores them.
+_EVIDENCE_RE = re.compile(
+    r"\b(est\s+de|s'[ée]l[èe]ve|atteint|moyenne?\s+de|m[ée]dian\w*\s+(de|est)|"
+    r"soit\s+une\s+(baisse|hausse)|on\s+(observe|constate)|"
+    r"le\s+taux\s+d'engagement\s+(moyen|m[ée]dian))\b",
+    re.IGNORECASE,
+)
+
 
 # ─────────────────────────────────────────────────────────────────────────
 # Small helpers
 # ─────────────────────────────────────────────────────────────────────────
 
-def _issue(validator: str, severity: str, message: str) -> Dict[str, str]:
-    return {"validator": validator, "severity": severity, "message": message}
+def _issue(validator: str, severity: str, message: str, **extra: Any) -> Dict[str, Any]:
+    d: Dict[str, Any] = {"validator": validator, "severity": severity,
+                         "message": message}
+    d.update(extra)          # e.g. locus=<offending line> for er_bounds repair
+    return d
 
 
 def _to_number(raw: str) -> Optional[float]:
@@ -112,7 +135,11 @@ def _to_number(raw: str) -> Optional[float]:
     if not s:
         return None
     # 1.000 / 12.345.678 → thousands-grouped integer
-    if re.fullmatch(r"\d{1,3}(\.\d{3})+", s):
+    # Dots = thousands sep ONLY when the integer part is non-zero
+    # ('1.000'->1000). A leading-zero form ('0.008','0.123') is always a
+    # decimal — the old rule misread those as 8/123 and made er_bounds
+    # false-fire on every legit 3-decimal engagement value.
+    if re.fullmatch(r"\d{1,3}(\.\d{3})+", s) and not s.startswith("0"):
         s = s.replace(".", "")
     else:
         s = s.replace(",", ".")
@@ -137,6 +164,16 @@ def _load_full_facts(industry: str, full_facts: Optional[Dict[str, Any]]
 
 def _lines(text: str) -> List[str]:
     return [ln for ln in text.splitlines() if ln.strip()]
+
+
+def _surface_in(line_low: str, surfaces: List[str]) -> bool:
+    """Whole-token surface match. Substring matching made 'promo' hit the
+    topic name 'Cocktail Bar Promotions'; token boundaries fix that while
+    still matching apostrophe forms like \"d'emojis\"."""
+    for s in surfaces:
+        if re.search(r"(?<!\w)" + re.escape(s.lower()) + r"(?!\w)", line_low):
+            return True
+    return False
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -164,7 +201,8 @@ def er_bounds_check(prose: str, facts: Optional[Dict[str, Any]]) -> List[Dict]:
                     f"Engagement % {m.group(1)}% exceeds industry plausible "
                     f"max {round(ceiling, 4)}% (2×p95={p95}%) — likely "
                     f"decimal-loss ×100 bug. Copy the JSON value verbatim "
-                    f"(e.g. 0.08% not 8%)."
+                    f"(e.g. 0.08% not 8%).",
+                    locus=ln.strip(), cited=m.group(0), cited_value=val,
                 ))
     return issues
 
@@ -195,24 +233,32 @@ def shap_sign_check(prose: str, facts: Optional[Dict[str, Any]]) -> List[Dict]:
 
 def technical_term_verbatim_check(prose: str, facts_block: Any,
                                   facts: Optional[Dict[str, Any]]) -> List[Dict]:
+    """A whitelist term that the LLM was actually shown (it is in THIS
+    module's facts_block) must survive verbatim. If it is missing from the
+    prose AND a known paraphrase stands in for it, that is a fabrication.
+
+    Scope is facts_block only — NOT the full facts file. Using full facts
+    made every clip_pc*/doc_pc* name 'present' in every module and fired
+    ~20 issues per paraphrase. We also emit ONE issue per question (listing
+    the missing terms) instead of one per absent term, so a single
+    paraphrase can no longer inflate the count."""
     issues: List[Dict] = []
-    haystack = json.dumps(facts_block, ensure_ascii=False)
-    if facts:
-        haystack += json.dumps(facts, ensure_ascii=False)
+    block_blob = json.dumps(facts_block, ensure_ascii=False)
     prose_l = prose.lower()
-    paraphrase_present = [r for r in _PARAPHRASE_RES if r.search(prose)]
-    if not paraphrase_present:
+
+    paraphrases = [r.pattern for r in _PARAPHRASE_RES if r.search(prose)]
+    if not paraphrases:
         return issues
-    for term in WHITELIST_TERMS:
-        if term not in haystack:
-            continue                       # term not relevant to this block
-        if term.lower() in prose_l:
-            continue                       # term kept verbatim — fine
+
+    missing = [t for t in WHITELIST_TERMS
+               if t in block_blob and t.lower() not in prose_l]
+    if missing:
         issues.append(_issue(
             "technical_term_verbatim_check", "critical",
-            f"Technical term '{term}' is in the facts but absent from the "
-            f"prose, replaced by a hallucinated translation "
-            f"(\"{paraphrase_present[0].pattern}\"). It must appear verbatim."
+            f"Technical term(s) {', '.join(missing[:6])} are in this "
+            f"module's facts but absent from the prose, while a hallucinated "
+            f"translation is present (matched: {paraphrases[0]!r}). These "
+            f"feature names must appear verbatim, never translated."
         ))
     return issues
 
@@ -230,16 +276,34 @@ def reco_direction_check(prose: str, facts: Optional[Dict[str, Any]]) -> List[Di
     lifts = list((modules.get("content_strategy") or {}).get("binary_signal_lifts") or [])
     lifts += list((modules.get("engagement_tactics") or {}).get("tactic_lifts") or [])
 
+    # has_cta (binary_signal_lifts) and cta (tactic_lifts) are the SAME
+    # underlying signal computed twice — collapse them so one bad sentence
+    # is one issue, not two.
+    seen_family: set = set()
     prose_lines = _lines(prose)
     for lift in lifts:
         key = lift.get("signal") or lift.get("tactic")
         delta = lift.get("er_delta")
-        if key is None or delta is None or delta >= 0:
+        if key is None or delta is None or delta == 0:
             continue
+        family = key[4:] if key.startswith("has_") else key
+        if family in seen_family:
+            continue
+        seen_family.add(family)
         surfaces = _SIGNAL_SURFACE.get(key, [key.replace("has_", "").replace("_", " ")])
         for ln in prose_lines:
             low = ln.lower()
-            if _ENDORSE_RE.search(ln) and any(s in low for s in surfaces):
+            if not _surface_in(low, surfaces):
+                continue
+            # Skip descriptive / evidence sentences — they state a measured
+            # value, they do not prescribe an action. Only recommendations
+            # can "contradict" the data direction.
+            if _EVIDENCE_RE.search(ln):
+                continue
+            avoids = bool(_AVOID_RE.search(ln))
+            endorses = bool(_ENDORSE_RE.search(ln)) and not avoids
+            if delta < 0 and endorses:
+                # Endorsing a signal that lowers engagement.
                 issues.append(_issue(
                     "reco_direction_check", "critical",
                     f"Recommendation contradicts data: '{key}' has "
@@ -248,28 +312,50 @@ def reco_direction_check(prose: str, facts: Optional[Dict[str, Any]]) -> List[Di
                     f"lowers engagement."
                 ))
                 break
+            if delta > 0 and avoids and not endorses:
+                # Discouraging a signal that RAISES engagement (the reverse
+                # error: e.g. "éviter les CTA" when has_cta er_delta=+0.02).
+                issues.append(_issue(
+                    "reco_direction_check", "critical",
+                    f"Recommendation contradicts data: '{key}' has "
+                    f"er_delta={delta} (positive) but the prose advises "
+                    f"against it (\"{ln.strip()[:90]}\"). Do not discourage "
+                    f"a signal that raises engagement."
+                ))
+                break
 
     # performance_predictors: followers / brand_engagement_rate with a
     # negative SHAP direction must NOT be recommended to be increased.
+    # Per-LINE with the same negation guard as above: "éviter d'augmenter
+    # le nombre de followers" is CORRECT advice and must not fire.
     pp = (modules.get("performance_predictors") or {})
     feats = {f.get("feature"): f.get("direction") for f in pp.get("top_5_features", [])}
-    low_prose = prose.lower()
-    if feats.get("followers") == "-" and re.search(
+    foll_re = re.compile(
         r"augment\w*\s+(?:le\s+nombre\s+de\s+|les\s+|de\s+)?followers|"
-        r"plus\s+de\s+followers|gagner\s+des\s+followers", low_prose):
-        issues.append(_issue(
-            "reco_direction_check", "critical",
-            "Recommendation contradicts data: 'followers' has SHAP "
-            "direction '-' but the prose recommends increasing followers."
-        ))
-    if feats.get("brand_engagement_rate") == "-" and re.search(
+        r"plus\s+de\s+followers|gagner\s+des\s+followers", re.IGNORECASE)
+    ber_re = re.compile(
         r"am[ée]lior\w*\s+le\s+taux\s+d'engagement\s+de\s+la\s+marque|"
-        r"augment\w*\s+le\s+brand_engagement_rate", low_prose):
-        issues.append(_issue(
-            "reco_direction_check", "critical",
-            "Recommendation contradicts data: 'brand_engagement_rate' has "
-            "SHAP direction '-' but the prose recommends improving it."
-        ))
+        r"augment\w*\s+le\s+brand_engagement_rate", re.IGNORECASE)
+    for ln in prose_lines:
+        if _AVOID_RE.search(ln):
+            continue                      # "éviter d'augmenter …" → correct
+        if feats.get("followers") == "-" and foll_re.search(ln):
+            issues.append(_issue(
+                "reco_direction_check", "critical",
+                "Recommendation contradicts data: 'followers' has SHAP "
+                f"direction '-' but the prose recommends increasing followers "
+                f"(\"{ln.strip()[:90]}\")."))
+            break
+    for ln in prose_lines:
+        if _AVOID_RE.search(ln):
+            continue
+        if feats.get("brand_engagement_rate") == "-" and ber_re.search(ln):
+            issues.append(_issue(
+                "reco_direction_check", "critical",
+                "Recommendation contradicts data: 'brand_engagement_rate' has "
+                f"SHAP direction '-' but the prose recommends improving it "
+                f"(\"{ln.strip()[:90]}\")."))
+            break
     return issues
 
 

@@ -59,6 +59,46 @@ export async function getInsightsByIndustry(
   }
 }
 
+/**
+ * POST /insights/:industry/regenerate — runs the Python script synchronously
+ * (~2-3 min) and returns the freshly generated insights bundle.
+ */
+export async function regenerateIndustryInsights(
+  industry: IndustryKey
+): Promise<IndustryInsightsBundle> {
+  const { data } = await api.post<{ success: boolean; data: IndustryInsightsBundle }>(
+    `/insights/${industry}/regenerate`,
+    null,
+    { timeout: 10 * 60 * 1000 } // 10 min — script takes ~2-3 min
+  );
+  return data.data;
+}
+
+// ─── Classification Gemini — pipeline step 3 ─────────────────────────────────
+
+export type ClassifyResult = {
+  competitorId: string;
+  companyName: string;
+  classification?: string;
+  confidence?: number;
+  reason?: string;
+  error?: string;
+};
+
+export async function classifyProject(projectId: string): Promise<{
+  classified: number;
+  total: number;
+  results: ClassifyResult[];
+}> {
+  const { data } = await api.post<{
+    success: boolean;
+    classified: number;
+    total: number;
+    results: ClassifyResult[];
+  }>(`/projects/${projectId}/classify`);
+  return { classified: data.classified, total: data.total, results: data.results };
+}
+
 // ─── Sprint 12: scrape a single competitor via Python /v2/scrape ────────────
 
 export type ScrapeV2Result = {

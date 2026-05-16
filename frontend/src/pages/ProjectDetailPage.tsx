@@ -33,7 +33,7 @@ export function ProjectDetailPage() {
         id: 'pipeline',
         labelKey: 'projects.detail.tabs.pipeline',
         icon: <FiActivity />,
-        render: () => project.data ? <PipelineSection project={project.data} /> : null
+        render: () => project.data ? <PipelineSection project={project.data} projectId={projectId} /> : null
       },
       {
         id: 'insights',

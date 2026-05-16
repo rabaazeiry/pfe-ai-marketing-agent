@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { FiArrowLeft, FiCalendar, FiTag, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiCalendar, FiGlobe, FiTag, FiUsers } from 'react-icons/fi';
 import { Link } from '@tanstack/react-router';
 import type { ProjectDetail, ProjectStatus } from '../types';
 import { projectStatusTone } from '../statusBadge';
@@ -18,7 +18,9 @@ export function ProjectHeader({ project }: Props) {
       })
     : '—';
   const category = project.marketCategory ?? project.industry ?? '—';
-  const title = project.name?.trim() || project.businessIdea;
+  const title    = project.name?.trim() || project.businessIdea;
+  const country  = project.country ?? project.targetCountry ?? null;
+  const keywords = project.keywords ?? [];
 
   return (
     <div className="card space-y-4">
@@ -48,9 +50,13 @@ export function ProjectHeader({ project }: Props) {
         </span>
       </div>
 
+      {/* Meta row */}
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500 pt-3 border-t border-slate-100">
-        <MetaItem icon={<FiTag />} label={t('projects.detail.category')} value={category} />
+        <MetaItem icon={<FiTag />}      label={t('projects.detail.category')} value={category} />
         <MetaItem icon={<FiCalendar />} label={t('projects.detail.createdAt')} value={created} />
+        {country && (
+          <MetaItem icon={<FiGlobe />} label="Pays" value={country} />
+        )}
         {typeof project.competitorsCount === 'number' && (
           <span className="inline-flex items-center gap-1.5">
             <FiUsers className="text-slate-400" />
@@ -58,6 +64,25 @@ export function ProjectHeader({ project }: Props) {
           </span>
         )}
       </div>
+
+      {/* Keywords section */}
+      {keywords.length > 0 && (
+        <div className="pt-3 border-t border-slate-100">
+          <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">
+            Mots-clés détectés
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {keywords.map((kw) => (
+              <span
+                key={kw}
+                className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 ring-1 ring-brand-100"
+              >
+                {kw}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

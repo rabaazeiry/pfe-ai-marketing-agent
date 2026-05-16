@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getInsightsByIndustry,
   getProjectCompetitors,
   getProjectDetail,
-  getProjectInsights
+  getProjectInsights,
+  regenerateIndustryInsights,
 } from './detail.api';
 import type { IndustryKey } from './types';
 
@@ -38,5 +39,16 @@ export function useIndustryInsights(industry: IndustryKey | null) {
     queryFn: () => getInsightsByIndustry(industry!),
     enabled: !!industry,
     staleTime: 5 * 60_000
+  });
+}
+
+export function useRegenerateIndustryInsights(industry: IndustryKey | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => regenerateIndustryInsights(industry!),
+    onSuccess: (bundle) => {
+      // Script ran synchronously — seed the cache immediately with fresh data
+      queryClient.setQueryData(['insights', 'industry', industry], bundle);
+    },
   });
 }

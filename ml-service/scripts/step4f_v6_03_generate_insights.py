@@ -1,30 +1,57 @@
-"""Step 4f V6 — Generate 50 V6 insights via Llama 3.1 + Chroma.
+"""Step 4f V6 — RAG + LLM legacy generator (NO LONGER IN STEP 4 CRITICAL PATH).
 
-10 questions × 5 industries = 50 LLM calls. For each question we:
-  1. Retrieve top-K relevant docs from the V6 Chroma store (k=10).
-  2. Build a strict-JSON prompt asking for:
-       - answer:       single-paragraph synthesised answer
-       - evidence[]:   3-5 concrete data citations from the docs
-       - actionable_recommendations[]: 3-5 specific marketing actions
-       - ml_evidence:  one-line tie-in to V6/SHAP findings
-  3. Parse the JSON, validate, fall back to a deterministic structure on
-     parse failure.
+DEPRECATED FOR STEP 4 — DO NOT WIRE INTO THE DASHBOARD PIPELINE.
 
-The output keeps the existing envelope shape (so the live backend
-controller still works) and *extends* each question item with the new
-fields. For backwards compatibility with the existing frontend, we
-also synthesise an `insights[]` array (one item per recommendation +
-one per evidence point capped at 5).
+Step 4 insight generation is now deterministic and goes through two
+scripts that do NOT touch Chroma:
+
+    scripts/compute_facts.py     — pandas → data/step4f_v6/facts/facts_<industry>.json
+    scripts/rephrase_facts.py    — LLM rephrases facts.json into French prose
+
+This file is kept on disk for a different future use case ("free-form
+RAG QA" on the dashboard, where the user types a question and the LLM
+answers using Chroma retrieval). It is NOT called by any backend
+controller for the 10 fixed dashboard modules.
+
+Reason for the move: this generator asked an LLM to PRODUCE numbers
+from retrieved Markdown docs. That recycled numbers across modules,
+confused volume % with engagement %, and recommended outlier giveaway
+posts as patterns. The fix was architectural — separate calculation
+(Python) from writing (LLM). See PFE_RECAP_COMPLET.md and the audit
+in conversation log "Technical Description Request — Insights
+Pipeline (Step 4)" for the full history.
+
+Original behaviour (retained below for the QA-feature reuse):
+  10 questions × N industries = N×10 LLM calls. For each question we:
+    1. Retrieve top-K relevant docs from the V6 Chroma store (k=10),
+       filtered by industry metadata so cross-industry docs are excluded.
+    2. Build a strict-JSON prompt in French asking for:
+         - answer:       single-paragraph synthesised answer (French)
+         - evidence[]:   3-5 concrete data citations from the docs
+         - actionable_recommendations[]: 3-5 specific marketing actions
+         - ml_evidence:  one-line tie-in to V6/SHAP findings
+    3. Parse the JSON, validate, fall back to a deterministic structure
+       on parse failure.
+
+Usage (legacy / QA feature only):
+  python step4f_v6_03_generate_insights.py              # all 5 industries
+  python step4f_v6_03_generate_insights.py --industry fashion
 
 Outputs:
-  data/step4f_v6/insights/insights_<industry>.json   (5 files, V6 envelope)
+  data/step4f_v6/insights/insights_<industry>.json
+  (NOTE: rephrase_facts.py writes to the SAME path with a different
+   internal schema. Running this legacy script overwrites the
+   deterministic prose with the old RAG/LLM output — do not do this
+   in production.)
 """
 from __future__ import annotations
 
+import argparse
 import os
 os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -44,7 +71,10 @@ RETRIEVAL_K = 10
 LLM_MODEL = "llama3.1:latest"
 TEMPERATURE = 0.3
 MAX_TOKENS = 1500
-TIMEOUT_S = 180
+# Q10 (Performance Predictors) was hitting the previous 180s ceiling and
+# triggering the deterministic fallback. Bump to 300s; Q10 prompt is also
+# shortened below to reduce decoded tokens.
+TIMEOUT_S = 300
 
 # ─────────────────────────────────────────────────────────────────────────
 # 10 NEW QUESTIONS
@@ -143,11 +173,9 @@ QUESTIONS: List[Dict[str, str]] = [
         "id": "Q10_performance_predictors",
         "title": "Performance Predictors",
         "template": (
-            "What POST CHARACTERISTICS most strongly predict high engagement in {industry}? "
-            "Use the V6 stacking model (Ridge over RF V5c + XGB V5c, R²=0.4587, ρ=0.6686) "
-            "and the XGB V5c SHAP analysis. List the top 10 predictive features, the "
-            "direction of impact (positive / negative), and concrete examples of high-engagement "
-            "posts that confirm the pattern."
+            "From the V6 SHAP analysis, what are the TOP 5 features that predict "
+            "engagement for {industry}? For each: name the feature, the direction "
+            "of impact (+/-), and one concrete example post."
         ),
     },
 ]
@@ -156,51 +184,106 @@ QUESTIONS: List[Dict[str, str]] = [
 # Prompts
 # ─────────────────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are an expert digital marketing analyst specialising in the Tunisian Instagram market.
-You analyse engagement data from 41 Tunisian brands across 5 industries (beauty, fashion, hotels, patisserie, restaurants), based on 4127 Instagram posts.
+SYSTEM_PROMPT = """Tu es un expert en marketing digital tunisien.
+Réponds TOUJOURS en français.
+Ne mélange JAMAIS l'anglais et le français.
+Cite toujours des chiffres précis depuis les documents.
 
-The data is enriched with:
-- 21 BERTopic thematic clusters (multilingual: French, English, Arabic).
-- CLIP visual embeddings (15 PCA components).
-- mpnet caption-semantic embeddings (15 PCA components).
-- V6 STACKING model: Ridge ensemble of RF V5c + XGB V5c, R²(log)=0.4587, Spearman ρ=0.6686.
-- XGB V5c SHAP analysis is the primary interpretive lens for V6.
+Tu analyses des données d'engagement de 41 marques tunisiennes dans 5 secteurs (beauté, mode, hôtels, pâtisserie, restauration), basées sur 4127 posts Instagram.
 
-INSTRUCTIONS:
-1. Base ALL claims ONLY on the provided context documents — never invent numbers, brand names, or hashtags.
-2. Be SPECIFIC: cite numbers, percentages, hours, days, brand names, and document IDs.
-3. Be ACTIONABLE: each recommendation must lead to a concrete marketing decision.
-4. Be CONCISE but RICH: ~3-5 sentences for the answer, 3-5 items per list.
-5. Output STRICTLY valid JSON in the schema provided in the user prompt — no preamble, no markdown fence.
+Les données incluent :
+- 21 clusters thématiques BERTopic (multilingues : français, anglais, arabe).
+- Embeddings visuels CLIP (15 composantes PCA).
+- Embeddings sémantiques mpnet des légendes (15 composantes PCA).
+- Modèle V6 STACKING : Ridge ensemble de RF V5c + XGB V5c, R²(log)=0.4587, ρ de Spearman=0.6686.
+- L'analyse SHAP de XGB V5c est la principale lentille d'interprétation pour V6.
+
+INSTRUCTIONS :
+1. Base TOUTES les affirmations UNIQUEMENT sur les documents de contexte fournis — n'invente JAMAIS de chiffres, noms de marques ou hashtags.
+2. Sois PRÉCIS : cite des chiffres, pourcentages, heures, jours, noms de marques et IDs de documents.
+3. Sois ACTIONNABLE : chaque recommandation doit mener à une décision marketing concrète.
+4. Sois CONCIS : 2-3 phrases pour la réponse, exactement 3 éléments par liste.
+5. JAMAIS de JSON, JAMAIS d'accolades, JAMAIS de guillemets — texte structuré uniquement.
+
+RÈGLES DE BON SENS :
+- Fréquence maximale = 1 post par jour (7 posts/semaine max)
+- Carousel : maximum 7 slides
+- Ne mélange JAMAIS les industries — utilise uniquement les données du secteur demandé
+- Vérifie que les hashtags recommandés appartiennent au bon secteur
 """
 
-USER_PROMPT_TEMPLATE = """CONTEXT (top {k} retrieved documents from the V6 RAG store):
+USER_PROMPT_TEMPLATE = """CONTEXTE (top {k} documents récupérés depuis le store RAG V6, filtrés pour le secteur concerné) :
 {context}
 
-QUESTION: {question}
+QUESTION : {question}
 
-Produce a JSON object with EXACTLY this schema:
-{{
-  "answer": "3-5 sentence synthesised answer that directly answers the question, citing specific numbers and patterns from the context",
-  "evidence": [
-    "concrete data point #1 with numbers and document reference",
-    "concrete data point #2",
-    "concrete data point #3"
-  ],
-  "actionable_recommendations": [
-    "specific marketing action #1 (concrete: format X at hour Y, hashtag #Z, etc.)",
-    "specific marketing action #2",
-    "specific marketing action #3"
-  ],
-  "ml_evidence": "one short sentence tying the answer to V6 SHAP / stacking findings (cite specific feature names like clip_pcXX, doc_pcXX, brand_engagement_rate, etc.)"
-}}
+Génère ta réponse avec EXACTEMENT cette structure. NE PRODUIS JAMAIS DE JSON, JAMAIS D'ACCOLADES.
 
-Output ONLY the JSON, starting with {{ and ending with }}. No preamble, no code fence, no comments."""
+RÉPONSE :
+Réponds en 2-3 phrases courtes en français.
+Cite des chiffres précis et des brands tunisiennes réelles.
+JAMAIS de JSON ou de code.
+JAMAIS d'anglais.
+
+PREUVES :
+Génère exactement 3 preuves chiffrées.
+Format STRICT :
+- [Fait précis] : [chiffre]% — Source : [nom du document]
+- [Fait précis] : [chiffre]% — Source : [nom du document]
+- [Fait précis] : [chiffre]% — Source : [nom du document]
+
+Règles :
+- JAMAIS de JSON
+- Chiffres tirés UNIQUEMENT des documents fournis (ne JAMAIS inventer)
+
+RECOMMANDATIONS :
+Génère exactement 3 recommandations concrètes.
+Format STRICT — une ligne par recommandation :
+1. [Action précise] — [chiffre exact]% d'engagement — Exemple : [nom brand tunisienne]
+2. [Action précise] — [chiffre exact]% d'engagement — Exemple : [nom brand tunisienne]
+3. [Action précise] — [chiffre exact]% d'engagement — Exemple : [nom brand tunisienne]
+
+Règles :
+- Commence chaque ligne par un verbe d'action
+- Cite UNIQUEMENT des chiffres présents dans les documents (ne JAMAIS inventer)
+- Cite UNIQUEMENT des brands tunisiennes réelles
+- Maximum 15 mots par recommandation
+- JAMAIS de JSON, JAMAIS d'accolades, JAMAIS de guillemets
+
+ML :
+[Une phrase courte sur les features SHAP V6 les plus importantes pour ce secteur : clip_pcXX, doc_pcXX, brand_engagement_rate...]"""
 
 
 # ─────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────
+
+# Counter incremented each time we redact a >300% value. After the
+# ×100 display-formatter bug was fixed (see step4f_v6_01_build_documents.py
+# _eng_str), no doc should ever contain a value above 300%, so this should
+# stay at 0. We keep the filter wired in as a belt-and-braces safety net
+# but log the count at the end of generation — if it ever rises, somebody
+# has re-introduced an upstream inflation bug.
+HIGH_ENGAGEMENT_REDACTION_COUNT = 0
+
+
+def _filter_high_engagement(text: str) -> str:
+    """Replace any engagement percentage > 300 with a neutral placeholder.
+    Now defensive-only: with the display formatter fixed this should
+    never trigger."""
+    def _replace(m: re.Match) -> str:
+        global HIGH_ENGAGEMENT_REDACTION_COUNT
+        raw = m.group(1).replace(',', '.')
+        try:
+            val = float(raw)
+        except ValueError:
+            return m.group(0)
+        if val > 300:
+            HIGH_ENGAGEMENT_REDACTION_COUNT += 1
+            return "[valeur exceptionnelle exclue]"
+        return m.group(0)
+    return re.sub(r'(\d+(?:[.,]\d+)?)\s*%', _replace, text)
+
 
 def format_context(docs) -> str:
     parts = []
@@ -208,6 +291,8 @@ def format_context(docs) -> str:
         doc_id = doc.metadata.get("id", "?")
         doc_type = doc.metadata.get("type", "?")
         content = doc.page_content
+        # Remove outlier engagement values before they reach the LLM
+        content = _filter_high_engagement(content)
         # Truncate per-doc to keep prompt size reasonable
         if len(content) > 1500:
             content = content[:1500] + " …(truncated)"
@@ -215,25 +300,95 @@ def format_context(docs) -> str:
     return "\n\n".join(parts)
 
 
+def _parse_plain(s: str) -> Dict[str, Any] | None:
+    """Parse RÉPONSE/PREUVES/RECOMMANDATIONS/ML sections.
+    Falls back to heuristic extraction when headers are absent."""
+
+    def extract_section(header: str) -> str:
+        m = re.search(
+            rf'{re.escape(header)}\s*\n(.*?)(?=\n[A-ZÉÈÊËÀÂÙÛÇ][A-ZÉÈÊËÀÂÙÛÇ\w\s]+\s*:\s*\n|\Z)',
+            s, re.DOTALL | re.IGNORECASE,
+        )
+        return m.group(1).strip() if m else ""
+
+    def extract_numbered(text: str) -> List[str]:
+        return [
+            m.group(1).strip()
+            for ln in text.splitlines()
+            for m in (re.match(r'^\d+[\.\)]\s+(.+)', ln.strip()),)
+            if m and len(m.group(1)) > 8
+        ]
+
+    def extract_bullets(text: str) -> List[str]:
+        # Skip lines that are clearly instruction/rule text
+        _skip = re.compile(r'^(JAMAIS|Commence|Cite|Maximum|Format|Règles?|Instructions?)',
+                           re.IGNORECASE)
+        return [
+            ln.lstrip("•·- ").strip()
+            for ln in text.splitlines()
+            if re.match(r'^\s*[-•·]', ln) and len(ln.strip()) > 8
+            and not _skip.match(ln.lstrip("•·- ").strip())
+        ]
+
+    # ── Strict parse: section headers present ─────────────────────────────
+    answer       = extract_section("RÉPONSE :")
+    evidence_blk = extract_section("PREUVES :")
+    recs_blk     = extract_section("RECOMMANDATIONS :")
+    ml_blk       = extract_section("ML :")
+
+    evidence = extract_bullets(evidence_blk)
+    recs     = extract_numbered(recs_blk)
+    ml       = ml_blk.splitlines()[0].strip() if ml_blk else ""
+
+    # ── Lenient parse: no headers found — mine the raw text ───────────────
+    if not answer:
+        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', s) if p.strip()]
+        answer = paragraphs[0] if paragraphs else ""
+
+    if not recs:
+        recs = extract_numbered(s)
+
+    if not evidence:
+        evidence = extract_bullets(s)
+
+    if not answer or not recs:
+        return None
+
+    return {
+        "answer": answer,
+        "evidence": evidence or ([evidence_blk] if evidence_blk else []),
+        "actionable_recommendations": recs,
+        "ml_evidence": ml,
+    }
+
+
 def parse_llm_response(text: str) -> Dict[str, Any] | None:
-    if not isinstance(text, str):
+    if not isinstance(text, str) or len(text.strip()) < 20:
         return None
     s = text.strip()
+
+    # Strip markdown fences
     if s.startswith("```"):
-        # strip ``` or ```json fences
-        s = s.split("```", 2)[1]
-        if s.startswith("json"):
-            s = s[4:]
-    if s.endswith("```"):
-        s = s[: s.rfind("```")]
-    s = s.strip()
+        s = re.sub(r'^```\w*\n?', '', s)
+        s = re.sub(r'\n?```\s*$', '', s)
+        s = s.strip()
+
+    # Plain-text format (preferred)
+    if re.search(r'RÉPONSE\s*:|PREUVES\s*:|RECOMMANDATIONS\s*:', s, re.IGNORECASE):
+        result = _parse_plain(s)
+        if result:
+            return result
+
+    # Fallback: LLM ignored the instruction and returned JSON anyway
     a = s.find("{"); b = s.rfind("}")
-    if a < 0 or b <= a:
-        return None
-    try:
-        return json.loads(s[a:b + 1])
-    except json.JSONDecodeError:
-        return None
+    if a >= 0 and b > a:
+        try:
+            return json.loads(s[a:b + 1])
+        except json.JSONDecodeError:
+            pass
+
+    # Last resort: try plain parse on whatever text came back
+    return _parse_plain(s)
 
 
 def synth_legacy_insights(parsed: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -304,8 +459,20 @@ def validate_parsed(parsed: Dict[str, Any]) -> Tuple[bool, str]:
 # ─────────────────────────────────────────────────────────────────────────
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate V6 RAG insights")
+    parser.add_argument(
+        "--industry",
+        choices=INDUSTRIES + ["all"],
+        default="all",
+        help="Industry to regenerate (default: all)",
+    )
+    args = parser.parse_args()
+    industries_to_run = INDUSTRIES if args.industry == "all" else [args.industry]
+
+    n_calls = len(QUESTIONS) * len(industries_to_run)
     print("=" * 78)
-    print("Step 4f V6 — Generate 50 insights via Llama 3.1 + Chroma")
+    print(f"Step 4f V6 — Generate {n_calls} insights via Llama 3.1 + Chroma")
+    print(f"Industries : {industries_to_run}")
     print("=" * 78)
 
     print(f"\nLoading Chroma + Llama ...")
@@ -338,8 +505,8 @@ def main() -> int:
     total_llm_time = 0.0
     summary: Dict[str, Dict[str, int]] = {}
 
-    for ind_idx, industry in enumerate(INDUSTRIES, 1):
-        print(f"\n[{ind_idx}/{len(INDUSTRIES)}] Industry: {industry.upper()}")
+    for ind_idx, industry in enumerate(industries_to_run, 1):
+        print(f"\n[{ind_idx}/{len(industries_to_run)}] Industry: {industry.upper()}")
         print("-" * 78)
 
         envelope = {
@@ -359,8 +526,16 @@ def main() -> int:
             qtext = q["template"].format(industry=industry)
             print(f"  Q{q_idx:>2}/10  {q['title']}")
 
+            # FIX 2 — filter by industry so cross-industry docs never appear
+            industry_filter = {
+                "$or": [
+                    {"industry": {"$eq": industry}},
+                    {"industry_dominant": {"$eq": industry}},
+                    {"type": {"$eq": "ml_insight"}},
+                ]
+            }
             t_r = time.perf_counter()
-            retrieved = vs.similarity_search(qtext, k=RETRIEVAL_K)
+            retrieved = vs.similarity_search(qtext, k=RETRIEVAL_K, filter=industry_filter)
             r_time = time.perf_counter() - t_r
             r_ids = [d.metadata.get("id", "?") for d in retrieved]
             print(f"        retrieved {len(retrieved)} docs ({r_time*1000:.0f} ms)")
@@ -433,6 +608,9 @@ def main() -> int:
     print()
     print(f"  per-industry: {summary}")
     print(f"  output dir:   {OUT_DIR.relative_to(ROOT)}")
+    # Defensive >300% redactions should now be 0; non-zero means an
+    # upstream inflation bug has re-entered the pipeline.
+    print(f"  >300% redactions in context (should be 0): {HIGH_ENGAGEMENT_REDACTION_COUNT}")
     return 0
 
 

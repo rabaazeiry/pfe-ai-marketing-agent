@@ -85,7 +85,7 @@ for tid, tinfo in topics.items():
     text = (
         f"Topic '{tinfo['name']}' (Topic ID {tid}) contains {len(g)} "
         f"Instagram posts from Tunisian brands. "
-        f"Average engagement rate: {avg_eng*100:.2f}%, median: {median_eng*100:.2f}%. "
+        f"Average engagement rate: {avg_eng:.2f}%, median: {median_eng:.2f}%. "
         f"Most posts published around {hour_mode}h. "
         f"Top hashtags: {', '.join('#'+h for h in top_hashtags) if top_hashtags else 'none'}. "
         f"Industry distribution: {industry_str}. "
@@ -131,7 +131,7 @@ for tid, tinfo in topics.items():
         text = (
             f"Top post #{rank} in topic '{tinfo['name']}'. "
             f"Brand: {row['username']}. "
-            f"Engagement: {eng*100:.2f}% (vs topic average {avg_topic*100:.2f}%). "
+            f"Engagement: {eng:.2f}% (vs topic average {avg_topic:.2f}%). "
             f"Format: {content_type}. Posted at {hour}h. "
             f"Hashtags: {', '.join('#'+h for h in hashtags_list) if hashtags_list else 'none'}. "
             f"Caption: \"{caption}...\""
@@ -183,8 +183,8 @@ for brand in df["username"].unique():
     text = (
         f"Brand '{brand}' is in {industry} industry. "
         f"Total posts: {len(g)}. "
-        f"Average engagement rate: {avg_eng*100:.2f}% "
-        f"(vs {industry} industry average {ind_avg*100:.2f}%). "
+        f"Average engagement rate: {avg_eng:.2f}% "
+        f"(vs {industry} industry average {ind_avg:.2f}%). "
         f"Performance: {perf_tier.upper().replace('_', ' ')}. "
         f"Top 3 topics: {'; '.join(top_topics_named)}. "
         f"Preferred posting hour: {hour_mode}h. "
@@ -239,9 +239,9 @@ for industry in df["industry_simple"].unique():
     text = (
         f"{industry.upper()} industry in Tunisia: {n_brands} active brands, "
         f"{len(g)} total posts. "
-        f"Average engagement: {avg_eng*100:.2f}%, median: {median_eng*100:.2f}%. "
+        f"Average engagement: {avg_eng:.2f}%, median: {median_eng:.2f}%. "
         f"Top 3 dominant topics: {'; '.join(top_topics_named)}. "
-        f"Best content type: {best_content} ({best_content_eng*100:.2f}% avg engagement). "
+        f"Best content type: {best_content} ({best_content_eng:.2f}% avg engagement). "
         f"Optimal posting hour: {best_hour}h. "
         f"Top performing brands: {', '.join(top_brands)}."
     )

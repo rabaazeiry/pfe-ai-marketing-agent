@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiAlertCircle, FiCheck, FiLoader } from 'react-icons/fi';
+import { FiAlertCircle, FiCheck, FiCpu, FiLoader } from 'react-icons/fi';
 import type { PipelineStep, PipelineStepState, ProjectDetail } from '../types';
 import { derivePipeline, PIPELINE_STEP_ORDER } from '../pipeline';
+import { useClassifyProject } from '../useClassifyProject';
 
-type Props = { project: ProjectDetail };
+type Props = { project: ProjectDetail; projectId: string };
 
 type StepVisuals = {
   marker: ReactElement;
@@ -50,10 +51,14 @@ const VISUALS: Record<PipelineStepState, Omit<StepVisuals, 'marker'> & { marker:
   }
 };
 
-export function PipelineSection({ project }: Props) {
+export function PipelineSection({ project, projectId }: Props) {
   const { t } = useTranslation();
   const steps = derivePipeline(project);
+  const classify = useClassifyProject(projectId);
   const pct = Math.max(0, Math.min(100, project.progressPercentage ?? 0));
+
+  const classificationStep = steps.find(s => s.key === 'classification');
+  const canClassify = classificationStep?.state === 'pending';
 
   return (
     <div className="card">
@@ -87,6 +92,39 @@ export function PipelineSection({ project }: Props) {
           />
         ))}
       </ol>
+
+      {canClassify && (
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => classify.mutate()}
+            disabled={classify.isPending}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          >
+            {classify.isPending ? (
+              <>
+                <FiLoader className="w-4 h-4 animate-spin" />
+                <span>Classification en cours…</span>
+              </>
+            ) : (
+              <>
+                <FiCpu className="w-4 h-4" />
+                <span>Lancer la classification</span>
+              </>
+            )}
+          </button>
+          {classify.isError && (
+            <p className="mt-2 text-xs text-red-600">
+              Erreur — vérifiez la console et réessayez.
+            </p>
+          )}
+          {classify.isSuccess && (
+            <p className="mt-2 text-xs text-emerald-600">
+              {classify.data.classified}/{classify.data.total} concurrent(s) classifié(s).
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

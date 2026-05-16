@@ -71,14 +71,19 @@ def test_critical_triggers_one_retry_and_adopts_clean():
     assert "decimal-loss" in llm.calls[1]
 
 
-def test_retry_not_improving_keeps_first_and_caps_at_two_calls():
-    llm = FakeLLM([BAD, BAD])
+def test_retry_capped_then_deterministic_er_repair_clears_it():
+    """LLM never improves (always BAD), so retries are exhausted at the hard
+    cap (1 + MAX_REPAIR_RETRIES) and the deterministic, no-LLM er-repair then
+    removes the ×100 hallucination — never loops, always ends grounded."""
+    llm = FakeLLM([BAD])  # min-clamp → BAD on every call
     parsed, status, _lat, _bad, issues = rephrase_facts.rephrase_one(
         llm, "patisserie", Q, FACTS)
-    assert len(llm.calls) == 2, "must never loop beyond one retry"
-    assert status.startswith("REPAIR_FAILED"), status
-    assert "8%" in parsed["answer"], "first answer kept when retry no better"
-    assert any(i.get("severity") == "critical" for i in issues), issues
+    assert len(llm.calls) == 1 + rephrase_facts.MAX_REPAIR_RETRIES, \
+        f"hard cap on LLM calls, got {len(llm.calls)}"
+    assert "8%" not in parsed["answer"], "×100 token must be repaired out"
+    assert "er_determ" in status, status
+    assert not any(i.get("validator") == "er_bounds_check"
+                   and i.get("severity") == "critical" for i in issues), issues
 
 
 def test_clean_prose_no_retry():

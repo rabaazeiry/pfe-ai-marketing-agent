@@ -1,20 +1,24 @@
 // backend/src/routes/project.routes.js
 
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 const {
   createProject,
   getAllProjects,
   getProject,
   updateProject,
   deleteProject,
-  updateProgress,    // ✅ AJOUTÉ
-  getProjectInsights // ✅ Sprint 12
+  updateProgress,
+  getProjectInsights,
+  suggestProjectName,
 } = require('../controllers/project.controller');
+const { classifyProjectCompetitors } = require('../controllers/classification.controller');
 const { protect } = require('../middlewares/auth.middleware');
 
-// Toutes les routes sont protégées
 router.use(protect);
+
+// Must be BEFORE /:id to avoid "suggest-name" being treated as an id
+router.post('/suggest-name', suggestProjectName);
 
 router.route('/')
   .get(getAllProjects)
@@ -25,10 +29,8 @@ router.route('/:id')
   .put(updateProject)
   .delete(deleteProject);
 
-// ✅ AJOUTÉ : Route pour mettre à jour la progression (Dashboard)
-router.patch('/:id/progress', updateProgress);
-
-// ✅ Sprint 12 : Insights endpoint (returns saved insight or 404 for frontend mock)
-router.get('/:id/insights', getProjectInsights);
+router.patch('/:id/progress',   updateProgress);
+router.get('/:id/insights',     getProjectInsights);
+router.post('/:id/classify',    classifyProjectCompetitors);
 
 module.exports = router;

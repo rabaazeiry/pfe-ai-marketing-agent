@@ -10,9 +10,30 @@ import {
 } from 'react-icons/fi';
 import { useToast } from '@/components/Toast';
 import type { ScrapeV2Result } from '../detail.api';
-import type { CompetitorSummary, ScrapingStatus } from '../types';
+import type { CompetitorClassification, CompetitorSummary, ScrapingStatus } from '../types';
 import { useScrapeCompetitor } from '../useScrapeCompetitor';
 import { StateView } from './StateView';
+
+type BadgeConfig = { label: string; className: string };
+
+const CLASSIFICATION_BADGE: Record<string, BadgeConfig> = {
+  local_leader:           { label: 'Leader Local',           className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  local_startup:          { label: 'Startup Local',          className: 'bg-sky-50 text-sky-700 ring-sky-200' },
+  international_leader:   { label: 'Leader International',   className: 'bg-violet-50 text-violet-700 ring-violet-200' },
+  international_startup:  { label: 'Startup International',  className: 'bg-orange-50 text-orange-700 ring-orange-200' },
+  // fallback for old Ollama values
+  leader:  { label: 'Leader',  className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  startup: { label: 'Startup', className: 'bg-sky-50 text-sky-700 ring-sky-200' },
+};
+
+function ClassificationBadge({ value }: { value: CompetitorClassification }) {
+  const cfg = CLASSIFICATION_BADGE[value] ?? { label: value, className: 'bg-slate-100 text-slate-600 ring-slate-200' };
+  return (
+    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ${cfg.className}`}>
+      {cfg.label}
+    </span>
+  );
+}
 
 type Props = {
   projectId: string;
@@ -105,19 +126,24 @@ function CompetitorRow({ competitor, projectId }: { competitor: CompetitorSummar
     <li className="py-3 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-slate-800 truncate">{competitor.companyName}</span>
-            {competitor.classificationMaturity && (
-              <span className="text-[10px] uppercase tracking-wide text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                {competitor.classificationMaturity}
-              </span>
-            )}
+            {competitor.classification ? (
+              <ClassificationBadge value={competitor.classification} />
+            ) : competitor.classificationMaturity ? (
+              <ClassificationBadge value={competitor.classificationMaturity} />
+            ) : null}
             {competitor.isActive === false && (
               <span className="text-[10px] uppercase text-slate-500">
                 {t('projects.detail.competitors.inactive')}
               </span>
             )}
           </div>
+          {competitor.classificationJustification && (
+            <p className="text-[11px] text-slate-400 italic mt-0.5 leading-snug line-clamp-2">
+              {competitor.classificationJustification}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
             {competitor.website ? (
               <a

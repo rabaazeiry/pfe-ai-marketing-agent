@@ -5,6 +5,7 @@ const Competitor            = require('../models/Competitor.model');
 const Project               = require('../models/Project.model');
 const classificationService = require('../services/classification.service');
 const cleaningService       = require('../services/cleaning.service');
+const { classifyCompetitor: classifyWithGemini } = require('../services/classificationGemini.service');
 
 // ═══════════════════════════════════════════════════════════
 // CLASSIFIER TOUS LES CONCURRENTS D'UN PROJET
@@ -168,6 +169,92 @@ exports.classifyOne = async (req, res, next) => {
         classificationScore       : result.classificationScore,
         classificationJustification: result.classificationJustification
       }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// CLASSIFIER TOUS LES CONCURRENTS VIA GEMINI (pipeline step 3)
+// POST /api/projects/:id/classify
+// ═══════════════════════════════════════════════════════════
+exports.classifyProjectCompetitors = async (req, res, next) => {
+  try {
+    const { id: projectId } = req.params;
+
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Projet non trouvé' });
+    }
+    if (project.userId.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Accès refusé' });
+    }
+
+    const competitors = await Competitor.find({ projectId, isActive: true }).lean();
+    if (competitors.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Aucun concurrent trouvé — lancez la découverte en premier.'
+      });
+    }
+
+    console.log(`\n🤖 Classification Gemini: ${project.name} — ${competitors.length} concurrent(s)`);
+
+    const results = [];
+    for (const competitor of competitors) {
+      try {
+        const gemini = await classifyWithGemini(competitor, project);
+
+        // map combined classification to maturity (startup | leader)
+        const maturity = gemini.classification.includes('leader') ? 'leader' : 'startup';
+
+        // Use collection.updateOne to bypass the normalizeMaturityInUpdate hook
+        // so the detailed classification ('local_leader', etc.) is preserved as-is
+        await Competitor.collection.updateOne(
+          { _id: competitor._id },
+          { $set: {
+            classification            : gemini.classification,
+            classificationMaturity    : maturity,
+            classificationScore       : gemini.confidence,
+            classificationJustification: gemini.reason
+          }}
+        );
+
+        results.push({
+          competitorId  : competitor._id,
+          companyName   : competitor.companyName,
+          classification: gemini.classification,
+          confidence    : gemini.confidence,
+          reason        : gemini.reason
+        });
+
+        console.log(`   ✅ ${competitor.companyName} → ${gemini.classification} (${gemini.confidence}%)`);
+      } catch (err) {
+        console.error(`   ❌ ${competitor.companyName}: ${err.message}`);
+        results.push({
+          competitorId: competitor._id,
+          companyName : competitor.companyName,
+          error       : err.message
+        });
+      }
+
+      // small delay to respect Gemini free-tier rate limits
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    // Advance pipeline to step3_complete (classification done, 60%)
+    await project.advancePipeline('step3_complete');
+
+    const classified = results.filter(r => !r.error).length;
+    console.log(`\n✅ Classification terminée: ${classified}/${competitors.length}`);
+
+    return res.status(200).json({
+      success   : true,
+      classified,
+      total     : competitors.length,
+      results
     });
 
   } catch (error) {

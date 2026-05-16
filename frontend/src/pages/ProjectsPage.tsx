@@ -225,11 +225,16 @@ export function ProjectsPage() {
         onSubmit={async (values) => {
           setCreateError(null);
           try {
-            const project = await createProjectMutation.mutateAsync(values);
+            const project = await createProjectMutation.mutateAsync({
+              businessIdea:   values.businessIdea,
+              marketCategory: values.marketCategory,
+              targetCountry:  values.targetCountry || 'Tunisie',
+              name:           values.name,
+            });
             setIsModalOpen(false);
             toast.success(
               t('projects.create.toasts.successBody', {
-                name: project.businessIdea.slice(0, 60)
+                name: (project.name || project.businessIdea).slice(0, 60)
               }),
               t('projects.create.toasts.successTitle')
             );

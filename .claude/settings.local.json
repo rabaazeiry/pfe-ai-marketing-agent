@@ -21,7 +21,23 @@
       "Bash(python:*)",
       "Bash(uv run *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(Get-Content \"C:\\\\Users\\\\Client\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Client-Desktop-pfe-marketing-agent11\\\\83bf8393-874a-4d64-b34c-c346e8f22cbb\\\\tasks\\\\byo7m84v1.output\")",
+      "Bash(Select-Object -Last 80)",
+      "Bash(.venv/Scripts/python.exe -X utf8 scripts/prophet_train.py)",
+      "Bash(.venv/Scripts/python.exe scripts/prophet_preprocess.py)",
+      "Bash(.venv/Scripts/python.exe -X utf8 scripts/prophet_preprocess.py)",
+      "Bash(.venv/Scripts/python.exe -X utf8 scripts/prophet_tune.py)",
+      "Bash(cmd *)",
+      "Bash(.venv/Scripts/python.exe -m py_compile scripts/prophet_tune.py)",
+      "Bash(xargs -n1 basename)",
+      "Bash(mkdir -p deprecated_v1_v2/plots)",
+      "Bash(mv beauty_best_params.json fashion_best_params.json hotels_best_params.json patisserie_best_params.json restaurants_best_params.json deprecated_v1_v2/)",
+      "Bash(mv *_forecast.json deprecated_v1_v2/)",
+      "Bash(mv *_best_params_v2.json *_forecast_v2.json deprecated_v1_v2/)",
+      "Bash(mv plots/*_forecast_plot.png plots/*_components_plot.png plots/all_industries_comparison.png deprecated_v1_v2/plots/)",
+      "Bash(git restore *)",
+      "Bash(grep -v '^$')"
     ]
   }
 }

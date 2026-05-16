@@ -205,7 +205,7 @@ projectSchema.pre('save', function(next) {
   // ✅ FIX — suppression de this.industry = 'Food Business'
   // industry est maintenant géré par extraction.service.js
   if (this.isNew) {
-    this.country = 'Tunisie';
+    if (!this.country) this.country = 'Tunisie';
     if (!this.targetCountry) this.targetCountry = 'TN';
   }
   next();

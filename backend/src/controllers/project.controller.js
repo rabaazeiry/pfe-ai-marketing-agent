@@ -1,15 +1,80 @@
 // backend/src/controllers/project.controller.js
-// VERSION 5 — Adapté pour Pâtisserie Tunisienne
 
 const Project           = require('../models/Project.model');
 const Insight           = require('../models/Insight.model');
 const extractionService = require('../services/extraction.service');
 
+// ─── Converts user-typed country name to ISO 2-letter code for the DB field ──
+function mapToCountryCode(name) {
+  const n = (name || '').toLowerCase().trim();
+  if (n.includes('tunisi') || n === 'tn')                       return 'TN';
+  if (n.includes('franc')  || n === 'fr')                       return 'FR';
+  if (n.includes('maroc')  || n.includes('morocco') || n==='ma')return 'MA';
+  if (n.includes('algeri') || n === 'dz')                       return 'DZ';
+  if (n.includes('sénégal')|| n.includes('senegal') || n==='sn')return 'SN';
+  if (n.includes('belgiq') || n === 'be')                       return 'BE';
+  if (n.includes('espagne')|| n.includes('spain')   || n==='es')return 'ES';
+  if (n.includes('italie') || n.includes('italy')   || n==='it')return 'IT';
+  if (n.includes('canada') || n === 'ca')                       return 'CA';
+  return 'TN';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POST /api/projects/suggest-name
+// Returns a Groq-generated project name without saving anything.
+// ═══════════════════════════════════════════════════════════════════════════
+exports.suggestProjectName = async (req, res, next) => {
+  try {
+    const { businessIdea, marketCategory, targetCountry = 'Tunisie' } = req.body;
+
+    if (!businessIdea || businessIdea.trim().length < 10) {
+      return res.status(400).json({ success: false, message: 'Business idea requise (minimum 10 caractères)' });
+    }
+
+    // marketCategory is optional here — when empty, the LLM will auto-detect the industry
+    let name, keywords, industry;
+
+    try {
+      const extracted = await extractionService.extractProjectInfo(
+        businessIdea.trim(),
+        (marketCategory || '').trim(),
+        [],
+        (targetCountry || 'Tunisie').trim()
+      );
+      name     = extracted.name;
+      keywords = extracted.keywords;
+      industry = extracted.industry;
+    } catch (llmError) {
+      console.warn('⚠️ suggest-name LLM échoué, fallback:', llmError.message);
+      name     = `Projet ${marketCategory.trim()}`;
+      keywords = [];
+      industry = marketCategory.trim();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { name, keywords, industry, targetCountry: (targetCountry || 'Tunisie').trim() }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POST /api/projects
+// ═══════════════════════════════════════════════════════════════════════════
 exports.createProject = async (req, res, next) => {
   try {
-    const { businessIdea, marketCategory, competitorsHint } = req.body;
+    const {
+      businessIdea,
+      marketCategory,
+      targetCountry  = 'Tunisie',
+      name           : userProvidedName,
+      competitorsHint,
+    } = req.body;
 
-    // ===== VALIDATION INPUTS =====
+    // ===== VALIDATION =====
     if (!businessIdea || businessIdea.trim().length < 10) {
       return res.status(400).json({
         success: false,
@@ -20,18 +85,20 @@ exports.createProject = async (req, res, next) => {
     if (!marketCategory || marketCategory.trim().length < 2) {
       return res.status(400).json({
         success: false,
-        message: 'Market category requise (ex: "Pâtisserie artisanale", "Gâteaux tunisiens")'
+        message: 'Industrie requise (ex: "Fashion", "Hotels", "Patisserie")'
       });
     }
 
-    const hints = Array.isArray(competitorsHint)
+    const country = (targetCountry || 'Tunisie').trim();
+    const hints   = Array.isArray(competitorsHint)
       ? competitorsHint.filter(h => typeof h === 'string' && h.trim().length > 0).slice(0, 5)
       : [];
 
     // ===== STEP 1 : EXTRACTION LLM =====
     console.log('🤖 Step 1 — Extraction LLM...');
-    console.log(`   businessIdea    : ${businessIdea.trim().substring(0, 80)}...`);
+    console.log(`   businessIdea    : ${businessIdea.trim().substring(0, 80)}`);
     console.log(`   marketCategory  : ${marketCategory.trim()}`);
+    console.log(`   targetCountry   : ${country}`);
     console.log(`   competitorsHint : [${hints.join(', ')}]`);
 
     let extracted;
@@ -41,10 +108,11 @@ exports.createProject = async (req, res, next) => {
       extracted = await extractionService.extractProjectInfo(
         businessIdea.trim(),
         marketCategory.trim(),
-        hints
+        hints,
+        country
       );
     } catch (llmError) {
-      console.warn('⚠️ LLM extraction échouée, utilisation fallback:', llmError.message);
+      console.warn('⚠️ LLM extraction échouée, fallback générique:', llmError.message);
       extractionStatus = 'failed';
 
       const words = businessIdea
@@ -52,74 +120,51 @@ exports.createProject = async (req, res, next) => {
         .split(/\s+/)
         .filter(w => w.length > 3)
         .slice(0, 4);
-      const word0   = words[0] || 'pâtisserie';
-      const catWord = marketCategory.toLowerCase().split(/\s+/)[0] || 'patisserie';
+      const cat = marketCategory.toLowerCase();
 
-      // ✅ Fallback complet pour Pâtisserie Tunisienne
       extracted = {
         name           : `Projet ${marketCategory.trim()}`,
-        industry       : 'Food & Pastry',          // ✅ FIX
-        country        : 'Tunisie',
+        industry       : marketCategory.trim(),
+        country,
         marketCategory : marketCategory.trim(),
-        keywords       : [
-          'pâtisserie', 'gâteaux', 'baklawa', 'coffret',
-          'livraison', 'tunisie', 'حلويات', 'بقلاوة'
-        ],
+        keywords       : [cat, ...words].slice(0, 6),
         searchQueries  : [
-          `pâtisserie tunisie instagram`,
-          `gâteaux tunisiens instagram`,
-          `${catWord} tunis site officiel`,
-          `${word0} ${catWord} tunisie`,
-          `best pastry shop tunis instagram`,
-          `pâtisserie tunisie facebook`,
-          `masmoudi patisserie tunisie`,
-          `mamie karima patisserie tunisie`,
-          `maison turki patisserie tunisie`,
-          `patisserie aicha tunisie`,
-          `sellami patisserie tunisie`,
-          `cakery co tunisie`,
-          `حلويات تونس انستقرام`,
-          `بقلاوة تونس فيسبوك`,
-          `حلويات تونسية انستقرام`,
-          `baklawa tunisie livraison`,
-          `coffret gâteaux tunisie`,
-          `pâtisserie tunisienne livraison`,
-          `tunisian pastry instagram`,
-          `patisserie artisanale tunis`,
+          `${cat} instagram`,
+          `${cat} facebook`,
+          `${cat} ${country.toLowerCase()} instagram`,
+          `${cat} ${country.toLowerCase()} facebook`,
+          `meilleur ${cat} instagram`,
+          `top ${cat} ${country.toLowerCase()}`,
         ],
-        industryTerms  : ['patisserie', 'gâteaux', 'baklawa', 'حلويات', 'بقلاوة', 'coffret'],
-        targetAudience : [
-          'Familles tunisiennes',
-          'Mariés et fiancés',
-          'Professionnels pour cadeaux',
-          'Amateurs de pâtisserie orientale',
-          'Diaspora tunisienne'
-        ],
+        industryTerms  : words.slice(0, 4),
+        targetAudience : ['Clients locaux', 'Professionnels', 'Particuliers'],
         languages      : ['fr', 'ar', 'en'],
         competitorsHint: hints,
       };
     }
 
-    // ===== SAUVEGARDE EN MONGODB =====
+    // If the user edited the suggested name in the form, honour it
+    if (userProvidedName && userProvidedName.trim().length >= 2) {
+      extracted.name = userProvidedName.trim();
+    }
+
+    // ===== SAUVEGARDE =====
     const project = await Project.create({
-      // Inputs utilisateur
       userId          : req.user.id,
       businessIdea    : businessIdea.trim(),
       marketCategory  : marketCategory.trim(),
-      targetCountry   : 'TN',
+      targetCountry   : mapToCountryCode(country),
+      country,
       competitorsHint : hints,
 
-      // Générés par LLM
       name            : extracted.name,
-      industry        : extracted.industry || 'Food & Pastry',   // ✅ FIX
-      country         : 'Tunisie',
+      industry        : extracted.industry,
       keywords        : extracted.keywords,
       searchQueries   : extracted.searchQueries,
       industryTerms   : extracted.industryTerms || [],
       targetAudience  : extracted.targetAudience,
       languages       : extracted.languages,
 
-      // Status
       extractionStatus,
       pipelineStatus  : extractionStatus === 'completed'
                         ? 'step1_complete'
@@ -128,11 +173,9 @@ exports.createProject = async (req, res, next) => {
 
     console.log(`✅ Projet créé: ${project.name} (${project._id})`);
     console.log(`   industry       : ${project.industry}`);
-    console.log(`   marketCategory : ${project.marketCategory}`);
+    console.log(`   country        : ${project.country}`);
     console.log(`   keywords       : ${project.keywords.join(', ')}`);
     console.log(`   searchQueries  : ${project.searchQueries.length} queries`);
-    console.log(`   industryTerms  : ${(project.industryTerms || []).join(', ')}`);
-    console.log(`   targetAudience : ${project.targetAudience.join(', ')}`);
     console.log(`   pipelineStatus : ${project.pipelineStatus}`);
 
     res.status(201).json({
@@ -142,8 +185,8 @@ exports.createProject = async (req, res, next) => {
         project,
         extraction: {
           name           : extracted.name,
-          industry       : extracted.industry || 'Food & Pastry',  // ✅ FIX
-          country        : 'Tunisie',
+          industry       : extracted.industry,
+          country,
           marketCategory : marketCategory.trim(),
           keywords       : extracted.keywords,
           searchQueries  : extracted.searchQueries,
@@ -161,7 +204,7 @@ exports.createProject = async (req, res, next) => {
   }
 };
 
-// ===== ROUTES INCHANGÉES =====
+// ===== CRUD INCHANGÉ =====
 
 exports.getAllProjects = async (req, res, next) => {
   try {
@@ -194,11 +237,7 @@ exports.updateProject = async (req, res, next) => {
       if (req.body[field] !== undefined) updateData[field] = req.body[field];
     });
 
-    project = await Project.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    project = await Project.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
     res.status(200).json({ success: true, message: 'Projet mis à jour', data: project });
   } catch (error) { next(error); }
 };
@@ -231,9 +270,6 @@ exports.updateProgress = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// GET /api/projects/:id/insights
-// ═══════════════════════════════════════════════════════════════════════════
 exports.getProjectInsights = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.id);

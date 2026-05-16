@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiX } from 'react-icons/fi';
+import { FiLoader, FiSearch, FiX, FiZap } from 'react-icons/fi';
+import { suggestProjectName } from '../api';
 
 export type NewProjectFormValues = {
   businessIdea: string;
   marketCategory: string;
+  targetCountry: string;
+  name?: string;
 };
 
 type Props = {
@@ -16,19 +19,28 @@ type Props = {
 };
 
 const MIN_IDEA_LENGTH = 10;
-const DEFAULT_CATEGORY = 'General';
 
 export function NewProjectModal({ open, onClose, onSubmit, isSubmitting, errorMessage }: Props) {
   const { t } = useTranslation();
-  const [businessIdea, setBusinessIdea] = useState('');
-  const [marketCategory, setMarketCategory] = useState('');
-  const [localError, setLocalError] = useState<string | null>(null);
+
+  const [businessIdea,  setBusinessIdea]  = useState('');
+  const [industry,      setIndustry]      = useState('');
+  const [targetCountry, setTargetCountry] = useState('Tunisie');
+  const [projectName,   setProjectName]   = useState('');
+  const [isDetecting,   setIsDetecting]   = useState(false);
+  const [isSuggesting,  setIsSuggesting]  = useState(false);
+  const [localError,    setLocalError]    = useState<string | null>(null);
+
   const firstFieldRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (!open) {
       setBusinessIdea('');
-      setMarketCategory('');
+      setIndustry('');
+      setTargetCountry('Tunisie');
+      setProjectName('');
+      setIsDetecting(false);
+      setIsSuggesting(false);
       setLocalError(null);
       return;
     }
@@ -39,13 +51,60 @@ export function NewProjectModal({ open, onClose, onSubmit, isSubmitting, errorMe
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isSubmitting) onClose();
+      if (e.key === 'Escape' && !isLocked) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, isSubmitting, onClose]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isSubmitting, isDetecting, isSuggesting, onClose]);
 
   if (!open) return null;
+
+  const ideaReady = businessIdea.trim().length >= MIN_IDEA_LENGTH;
+  const isLocked  = isSubmitting || isDetecting || isSuggesting;
+
+  // ── Detect industry only ──────────────────────────────────────────────────
+  const handleDetect = async () => {
+    if (!ideaReady || isLocked) return;
+    setIsDetecting(true);
+    setLocalError(null);
+    try {
+      const result = await suggestProjectName({
+        businessIdea:   businessIdea.trim(),
+        marketCategory: '',                          // empty → LLM auto-detects
+        targetCountry:  targetCountry.trim() || 'Tunisie',
+      });
+      setIndustry(result.industry);
+    } catch {
+      setLocalError('Impossible de détecter l\'industrie. Saisissez-la manuellement.');
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  // ── Suggest project name (auto-detects industry first if needed) ──────────
+  const handleSuggestName = async () => {
+    if (!ideaReady || isLocked) return;
+    setIsSuggesting(true);
+    setLocalError(null);
+    try {
+      const cat = industry.trim();
+      const result = await suggestProjectName({
+        businessIdea:   businessIdea.trim(),
+        marketCategory: cat,                         // empty if user hasn't typed yet
+        targetCountry:  targetCountry.trim() || 'Tunisie',
+      });
+      // If industry was empty, fill it from what Groq detected
+      if (!cat && result.industry) {
+        setIndustry(result.industry);
+      }
+      setProjectName(result.name);
+    } catch {
+      setLocalError('Impossible de générer un nom. Vous pouvez en saisir un manuellement.');
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,10 +113,16 @@ export function NewProjectModal({ open, onClose, onSubmit, isSubmitting, errorMe
       setLocalError(t('projects.create.errors.ideaTooShort', { min: MIN_IDEA_LENGTH }));
       return;
     }
+    if (!industry.trim()) {
+      setLocalError('Veuillez saisir ou détecter une industrie.');
+      return;
+    }
     setLocalError(null);
     await onSubmit({
-      businessIdea: trimmedIdea,
-      marketCategory: marketCategory.trim() || DEFAULT_CATEGORY
+      businessIdea:   trimmedIdea,
+      marketCategory: industry.trim(),
+      targetCountry:  targetCountry.trim() || 'Tunisie',
+      name:           projectName.trim() || undefined,
     });
   };
 
@@ -70,10 +135,11 @@ export function NewProjectModal({ open, onClose, onSubmit, isSubmitting, errorMe
       aria-modal="true"
       aria-labelledby="new-project-title"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) onClose();
+        if (e.target === e.currentTarget && !isLocked) onClose();
       }}
     >
       <div className="w-full max-w-lg rounded-xl bg-white shadow-soft border border-slate-100">
+        {/* Header */}
         <div className="flex items-start justify-between px-5 pt-5">
           <div>
             <h2 id="new-project-title" className="text-lg font-semibold text-slate-900">
@@ -85,7 +151,7 @@ export function NewProjectModal({ open, onClose, onSubmit, isSubmitting, errorMe
             type="button"
             className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={isLocked}
             aria-label={t('common.close')}
           >
             <FiX />
@@ -93,6 +159,8 @@ export function NewProjectModal({ open, onClose, onSubmit, isSubmitting, errorMe
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 pb-5 pt-4 space-y-4">
+
+          {/* Business Idea */}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor="np-idea">
               {t('projects.create.fields.idea')}
@@ -100,11 +168,11 @@ export function NewProjectModal({ open, onClose, onSubmit, isSubmitting, errorMe
             <textarea
               id="np-idea"
               ref={firstFieldRef}
-              className="input min-h-[96px] resize-y"
+              className="input min-h-[88px] resize-y"
               placeholder={t('projects.create.placeholders.idea')}
               value={businessIdea}
               onChange={(e) => setBusinessIdea(e.target.value)}
-              disabled={isSubmitting}
+              disabled={isLocked}
               required
               minLength={MIN_IDEA_LENGTH}
             />
@@ -113,37 +181,136 @@ export function NewProjectModal({ open, onClose, onSubmit, isSubmitting, errorMe
             </p>
           </div>
 
+          {/* Industry — free text + Détecter */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor="np-category">
-              {t('projects.create.fields.category')}{' '}
-              <span className="text-slate-400 font-normal">({t('projects.create.optional')})</span>
+            <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor="np-industry">
+              Industrie <span className="text-red-400">*</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="np-industry"
+                className="input flex-1"
+                placeholder={isDetecting ? 'Détection en cours…' : 'Ex: Sport & Fitness, Immobilier, Education…'}
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+                disabled={isLocked}
+                required
+              />
+              <AIButton
+                onClick={handleDetect}
+                disabled={!ideaReady || isLocked}
+                loading={isDetecting}
+                icon={<FiSearch className="h-3.5 w-3.5" />}
+                label="Détecter"
+                loadingLabel="Détection…"
+                title={ideaReady ? 'Détecter l\'industrie avec Groq' : 'Décrivez d\'abord votre idée'}
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Saisissez votre industrie ou laissez Groq la détecter automatiquement.
+            </p>
+          </div>
+
+          {/* Target Country */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor="np-country">
+              Pays cible{' '}
+              <span className="text-slate-400 font-normal">(modifiable)</span>
             </label>
             <input
-              id="np-category"
+              id="np-country"
               className="input"
-              placeholder={t('projects.create.placeholders.category')}
-              value={marketCategory}
-              onChange={(e) => setMarketCategory(e.target.value)}
-              disabled={isSubmitting}
+              placeholder="Tunisie"
+              value={targetCountry}
+              onChange={(e) => setTargetCountry(e.target.value)}
+              disabled={isLocked}
             />
           </div>
 
+          {/* Project Name + Suggérer */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor="np-name">
+              Nom du projet{' '}
+              <span className="text-slate-400 font-normal">(optionnel)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="np-name"
+                className="input flex-1"
+                placeholder={isSuggesting ? 'Génération en cours…' : 'Ex: Maison de Mode Tunis'}
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                disabled={isLocked}
+              />
+              <AIButton
+                onClick={handleSuggestName}
+                disabled={!ideaReady || isLocked}
+                loading={isSuggesting}
+                icon={<FiZap className="h-3.5 w-3.5" />}
+                label="Suggérer"
+                loadingLabel="Génération…"
+                title={
+                  !ideaReady
+                    ? 'Décrivez d\'abord votre idée'
+                    : !industry.trim()
+                      ? 'Suggérer un nom et détecter l\'industrie'
+                      : 'Générer un nom avec Groq'
+                }
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">
+              {industry.trim()
+                ? 'Laissez vide pour laisser l\'IA générer automatiquement.'
+                : 'Cliquez Suggérer pour remplir le nom ET détecter l\'industrie en une fois.'}
+            </p>
+          </div>
+
+          {/* Error */}
           {errorToShow && (
             <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 border border-red-100">
               {errorToShow}
             </div>
           )}
 
+          {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-2">
-            <button type="button" className="btn-ghost" onClick={onClose} disabled={isSubmitting}>
+            <button type="button" className="btn-ghost" onClick={onClose} disabled={isLocked}>
               {t('common.cancel')}
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="btn-primary" disabled={isLocked}>
               {isSubmitting ? t('common.loading') : t('projects.create.submit')}
             </button>
           </div>
         </form>
       </div>
     </div>
+  );
+}
+
+// ── Shared AI action button ───────────────────────────────────────────────────
+function AIButton({
+  onClick, disabled, loading, icon, label, loadingLabel, title,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  loading: boolean;
+  icon: React.ReactNode;
+  label: string;
+  loadingLabel: string;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+    >
+      {loading
+        ? <FiLoader className="animate-spin h-3.5 w-3.5" />
+        : icon}
+      {loading ? loadingLabel : label}
+    </button>
   );
 }
