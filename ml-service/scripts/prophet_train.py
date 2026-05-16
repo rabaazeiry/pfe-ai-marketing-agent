@@ -9,7 +9,8 @@ For each industry:
   - Train Prophet with best params + regressors + Tunisia holidays
     (n_changepoints = 25, identical to the CV in prophet_tune.py)
   - Predict next 12 weeks (FIX-6) with future regressors
-  - FIX-8: clip yhat_lower at 0 (engagement rate can't be negative)
+  - FIX-8: clip yhat, yhat_lower, yhat_upper at 0 (engagement rate
+    can't be negative) before intensity / std / ratio / JSON
   - FIX-7: automated guard — if forecast_std/hist_std < 0.3 the forecast
     collapsed; raise (the run is caught per-industry in main so the
     report is complete, but a collapsed industry is NEVER written)
@@ -288,8 +289,12 @@ def train_industry(industry: str) -> dict | None:
     future_full   = build_future_regressors(df, future_base)
     forecast_full = model.predict(future_full)
 
-    # FIX-8: clip the lower CI bound at 0 everywhere it is used / shipped.
+    # FIX-8: engagement rate can't be negative — clip all three forecast
+    # columns at 0 BEFORE intensity / posts_recommended / forecast_std /
+    # ratio are computed and before the JSON is written.
+    forecast_full["yhat"]       = forecast_full["yhat"].clip(lower=0)
     forecast_full["yhat_lower"] = forecast_full["yhat_lower"].clip(lower=0)
+    forecast_full["yhat_upper"] = forecast_full["yhat_upper"].clip(lower=0)
 
     cutoff       = df["ds"].max()
     future_slice = (forecast_full[forecast_full["ds"] > cutoff]
