@@ -254,6 +254,19 @@ _IND_FR = {"beauty": "beauté", "fashion": "mode", "hotels": "hôtellerie",
            "patisserie": "pâtisserie", "restaurants": "restauration"}
 
 
+def _det(sector: str, form: str = "la") -> str:
+    """French definite article with correct elision (vowel / h muet).
+    'hôtellerie' is h muet -> l'hôtellerie, de l'hôtellerie, par l'hôtellerie."""
+    elide = sector[:1].lower() in "aeiouàâäéèêëîïôöùûh"
+    if form == "de":
+        return f"de l'{sector}" if elide else f"de la {sector}"
+    if form == "par":
+        return f"par l'{sector}" if elide else f"par la {sector}"
+    if form == "La":                                   # sentence-initial
+        return f"L'{sector}" if elide else f"La {sector}"
+    return f"l'{sector}" if elide else f"la {sector}"
+
+
 def build_grounding(facts: Dict[str, Any]) -> Dict[str, Any]:
     """Turn the relevant facts numbers into QUALITATIVE French instructions.
     The model never sees a single digit — only directions like
@@ -499,8 +512,8 @@ def fallback_post(industry: str, post: Dict[str, Any],
     idx = (post.get("post_index", 1) + len(fmt)) % 3
     captions = [
         f"Prendre soin de chaque détail, c'est ça l'esprit {sector}.",
-        f"La {sector} qui nous ressemble, jour après jour.",
-        f"Un instant {tone_adj} à partager autour de la {sector}.",
+        f"{_det(sector, 'La')} qui nous ressemble, jour après jour.",
+        f"Un instant {tone_adj} à partager autour {_det(sector, 'de')}.",
     ]
     hooks = [
         "Et si on s'accordait un vrai moment rien que pour soi ?",
@@ -525,7 +538,7 @@ def fallback_post(industry: str, post: Dict[str, Any],
         "production_guide": fmt_guide,
         "visual_recommendation": (f"Image lumineuse et soignée, cadrage net et "
                                   f"épuré pensé pour Instagram, fidèle à "
-                                  f"l'univers de la {sector}."),
+                                  f"l'univers {_det(sector, 'de')}."),
     }
 
 
@@ -536,7 +549,7 @@ def fallback_summary(industry: str, g: Dict[str, Any]) -> Dict[str, str]:
         "objective": ("Renforcer la notoriété et l'engagement de la marque sur "
                       "Instagram pendant quatre semaines, autour d'un contenu "
                       "régulier, soigné et cohérent."),
-        "target_audience": (f"Public tunisien intéressé par la {sector} et "
+        "target_audience": (f"Public tunisien intéressé {_det(sector, 'par')} et "
                             f"attentif aux tendances actuelles du secteur."),
     }
 
