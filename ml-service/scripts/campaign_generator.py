@@ -89,16 +89,170 @@ def load_facts(industry: str) -> Optional[Dict[str, Any]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  CLIENT-SAFETY FILTERS  (FIX 1–4: competitor brands · seasonal · meta)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# facts_<ind>.json themes/hashtags are derived from SCRAPED COMPETITOR posts
+# (Step 3). Surfacing them verbatim makes the client's own campaign promote
+# its competitors. We therefore (a) strip competitor-brand / out-of-season
+# themes from the pools and the LLM grounding, (b) replace hashtags with a
+# fixed generic Tunisian sector pool, and (c) make the prose validator reject
+# any competitor brand name or chatbot/meta phrasing the LLM might echo.
+
+# (FIX 2 / ADJ 3) Fixed generic Tunisian hashtag pool — replaces competitor
+# @handles. ~12 per industry so 30 posts don't repeat the same 3-4 tags.
+_GENERIC_HASHTAGS: Dict[str, List[str]] = {
+    "beauty": ["#beautetunisie", "#soinsvisage", "#routinebeaute",
+               "#soinsnaturels", "#maquillage", "#peausaine", "#cosmetiques",
+               "#astucesbeaute", "#beauteautrement", "#tunisie",
+               "#beautyblogger", "#tunisienne"],
+    "fashion": ["#modetunisie", "#styletunisien", "#tendancemode",
+                "#lookdujour", "#inspirationmode", "#ootd", "#fashiontunisia",
+                "#modefemme", "#stylish", "#tunisie", "#shoppingtunisie",
+                "#tendance"],
+    "hotels": ["#hoteltunisie", "#tourismetunisie", "#vacancestunisie",
+               "#voyagetunisie", "#sejour", "#escapade", "#destinationtunisie",
+               "#traveltunisia", "#detente", "#tunisie", "#weekend",
+               "#hospitalite"],
+    "patisserie": ["#patisserietunisie", "#gourmandise", "#dessert",
+                   "#douceurs", "#patisseriemaison", "#gateau", "#sucre",
+                   "#faitmaison", "#gourmand", "#tunisie", "#patisserie",
+                   "#foodtunisia"],
+    "restaurants": ["#restauranttunisie", "#cuisinetunisienne", "#foodtunisia",
+                    "#restotunis", "#cuisinelocale", "#goodfood", "#saveurs",
+                    "#foodlover", "#gastronomie", "#tunisie", "#restaurant",
+                    "#miam"],
+}
+
+# (FIX 1 / ADJ 2) Generic per-industry themes. ALWAYS appended to the filtered
+# real themes (not just a last-resort fallback) so every industry has enough
+# variety for a 30-day calendar.
+_GENERIC_THEMES: Dict[str, List[str]] = {
+    "beauty": ["Routine beauté", "Soins du visage", "Conseils beauté",
+               "Astuces maquillage", "Peau saine", "Beauté naturelle"],
+    "fashion": ["Inspiration mode", "Style du quotidien", "Tendances mode",
+                "Look du jour", "Conseils style", "Mode tunisienne"],
+    "hotels": ["Évasion et séjour", "Expérience hôtelière",
+               "Découverte tourisme", "Détente et bien-être",
+               "Escapade locale", "Art de recevoir"],
+    "patisserie": ["Douceurs gourmandes", "Création pâtissière",
+                   "Plaisir sucré", "Pâtisserie maison", "Recette du jour",
+                   "Gourmandise tunisienne"],
+    "restaurants": ["Cuisine du jour", "Saveurs locales", "Expérience gourmande",
+                    "Plat signature", "Convivialité à table",
+                    "Cuisine tunisienne"],
+}
+
+# (FIX 1 / FIX 4) Known competitor brands seen in the scraped Step-3 data
+# (theme slugs + @handles). Matched whole-token so e.g. "turki" never hits
+# "Turkish". Extend this list as new competitors are scraped.
+_KNOWN_BRANDS: List[str] = [
+    # fashion
+    "zara", "bershka", "pull&bear", "pull and bear", "pullandbear", "kastelo",
+    # hotels
+    "hilton", "el mouradi", "elmouradi", "mouradi", "el mouradi palace",
+    # restaurants
+    "papa john", "papa johns", "kfc", "le golfe", "the 716",
+    # patisserie
+    "maison turki", "turki",
+    # beauty
+    "bioderma", "nuxe", "lella", "sephora", "veryrose",
+]
+_BRAND_RE = re.compile(
+    r"(?<!\w)(?:" + "|".join(re.escape(b) for b in _KNOWN_BRANDS) + r")(?!\w)",
+    re.IGNORECASE)
+
+# Theme tokens that promote *other* businesses rather than the client's sector.
+_COMPETITOR_KW_RE = re.compile(r"\breviews?\b", re.IGNORECASE)
+# English possessive ("Papa John's …") — strong brand signal in a theme slug.
+_POSSESSIVE_RE = re.compile(r"\b[\wÀ-ÿ]+'s\b", re.IGNORECASE)
+# "&"-joined brand token ("Pull&Bear") — generic sector themes never use it.
+_AMP_BRAND_RE = re.compile(r"\w&\w")
+# (ADJ 1) BERTopic clustering artifacts — meaningless as marketing themes
+# ("Outliers (mixed content)", "Multi-Industry Lifestyle", …).
+_JUNK_THEME_RE = re.compile(
+    r"\b(?:outliers?|mixed content|multi[- ]industry|cross[- ]industry)\b",
+    re.IGNORECASE)
+
+# (FIX 4) Chatbot / meta phrasing the LLM sometimes leaks into prose
+# (e.g. the hotels campaign_summary: "Je suis prêt à continuer si vous…").
+_META_PHRASES: List[str] = [
+    "je suis prêt", "je suis pret",
+    "si vous souhaitez", "souhaitez-vous que je",
+    "je peux développer", "je peux developper", "je peux continuer",
+    "n'hésitez pas à me demander", "n'hesitez pas a me demander",
+    "n'hésitez pas à me ", "n'hesitez pas a me ",
+    "je reste à votre disposition", "je reste a votre disposition",
+    "voici le résumé", "voici le resume", "comme demandé", "comme demande",
+]
+
+# (FIX 3) Seasonal windows in 2026, ordered specific→generic. A theme that
+# mentions a season is KEPT only if that season overlaps the campaign window.
+# NOTE: generic "eid"/"aïd" maps to Eid al-Adha (26–30 May 2026), so for a
+# May–June window Eid themes are IN-SEASON and kept (not blindly excluded).
+def _d(month: int, day: int) -> datetime:
+    return datetime(2026, month, day)
+
+_SEASON_RULES: List[Tuple[Any, List[Tuple[datetime, datetime]]]] = [
+    (re.compile(r"\bramadan\b", re.I),                              [(_d(2, 17), _d(3, 21))]),
+    (re.compile(r"\b(?:eid[ -]?al[- ]?fitr|a[iï]d[ -]?el[- ]?fitr|fitr)\b", re.I),
+                                                                    [(_d(3, 20), _d(3, 23))]),
+    (re.compile(r"\b(?:valentine'?s?|valentin)\b", re.I),           [(_d(2, 13), _d(2, 15))]),
+    (re.compile(r"\b(?:no[eë]l|christmas|hiver|winter)\b", re.I),
+                                       [(_d(1, 1), _d(2, 28)), (_d(12, 1), _d(12, 31))]),
+    (re.compile(r"\b(?:eid[ -]?al[- ]?adha|al[- ]?adha|adha|idha|k[eé]bir|sacrifice)\b", re.I),
+                                                                    [(_d(5, 26), _d(5, 30))]),
+    (re.compile(r"\b(?:eid|a[iï]d)\b", re.I),                       [(_d(5, 26), _d(5, 30))]),
+    (re.compile(r"\b(?:summer|[ée]t[ée]|estival)\b", re.I),         [(_d(6, 1), _d(8, 31))]),
+]
+
+
+def _overlap(lo: datetime, hi: datetime, wlo: datetime, whi: datetime) -> bool:
+    return lo <= whi and wlo <= hi
+
+
+def _theme_in_season(name: str, wlo: datetime, whi: datetime) -> bool:
+    """KEEP a theme that mentions a season only if that 2026 season overlaps
+    the campaign window. Themes with no seasonal keyword are always kept."""
+    for rx, ranges in _SEASON_RULES:
+        if rx.search(name):
+            return any(_overlap(lo, hi, wlo, whi) for lo, hi in ranges)
+    return True
+
+
+def _theme_has_brand(name: str) -> bool:
+    """A theme is competitor-tainted if it names a known brand, uses an
+    English possessive / '&'-brand token, or promotes competitor 'reviews'."""
+    return bool(_BRAND_RE.search(name) or _POSSESSIVE_RE.search(name)
+                or _AMP_BRAND_RE.search(name) or _COMPETITOR_KW_RE.search(name))
+
+
+def _theme_is_junk(name: str) -> bool:
+    """A theme is a meaningless BERTopic artifact (outliers / mixed content /
+    multi-/cross-industry) — useless to a client, dropped like brand themes."""
+    return bool(_JUNK_THEME_RE.search(name))
+
+
+def _theme_is_client_safe(name: str, wlo: datetime, whi: datetime) -> bool:
+    return (bool(name) and _theme_in_season(name, wlo, whi)
+            and not _theme_has_brand(name) and not _theme_is_junk(name))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  TEMPLATE LAYER — structure from Prophet + facts (zero LLM)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def build_pools(facts: Dict[str, Any]) -> Dict[str, Any]:
-    """Build the rotation pools, mirroring compute_facts.py:_build_calendar_30d."""
+def build_pools(industry: str, facts: Dict[str, Any],
+                win_lo: datetime, win_hi: datetime) -> Dict[str, Any]:
+    """Build the rotation pools, mirroring compute_facts.py:_build_calendar_30d.
+    Themes are then stripped of competitor brands / out-of-season seasons
+    (FIX 1+3) and hashtags are replaced by a fixed generic pool (FIX 2)."""
     m       = facts.get("modules", {})
     timing  = m.get("optimal_timing", {})
     visual  = m.get("visual_strategy", {})
     themesb = m.get("content_themes", {})
-    hashb   = m.get("hashtag_strategy", {})
+    # NOTE: m["hashtag_strategy"] is intentionally NOT used — those tags are
+    # competitor @handles (FIX 2 replaces them with _GENERIC_HASHTAGS).
 
     best_day_dows = [d.get("dow") for d in (timing.get("best_days") or [])
                      if d.get("dow") is not None]
@@ -124,11 +278,22 @@ def build_pools(facts: Dict[str, Any]) -> Dict[str, Any]:
             if t.get("is_own_industry") or t.get("topic_id") in (-1, None):
                 themes_pool.append({"topic_id": t.get("topic_id"), "topic_name": name})
                 seen.add(name)
-    if not themes_pool:                                   # defensive fallback
-        themes_pool = [{"topic_id": None, "topic_name": "contenu générique"}]
+    # (FIX 1+3 / ADJ 1) Drop competitor-brand, out-of-season and BERTopic-junk
+    # themes — the client must never promote a competitor, a finished season
+    # or a meaningless clustering artifact.
+    themes_pool = [t for t in themes_pool
+                   if _theme_is_client_safe(t["topic_name"], win_lo, win_hi)]
+    # (ADJ 2) ALWAYS enrich with generic sector themes (dedup by name), so
+    # every industry has enough variety for a 30-day calendar even when the
+    # filtered real-theme pool is small or empty.
+    seen_names = {t["topic_name"] for t in themes_pool}
+    for n in _GENERIC_THEMES.get(industry, ["contenu générique"]):
+        if n not in seen_names:
+            themes_pool.append({"topic_id": None, "topic_name": n})
+            seen_names.add(n)
 
-    hashtags_pool = [h["tag"] for h in (hashb.get("top_10_hashtags") or [])
-                     if h.get("tag")][:10]
+    # (FIX 2) Generic Tunisian sector hashtags — never competitor @handles.
+    hashtags_pool = list(_GENERIC_HASHTAGS.get(industry, ["#tunisie"]))
 
     return {
         "best_day_dows": best_day_dows,
@@ -267,7 +432,8 @@ def _det(sector: str, form: str = "la") -> str:
     return f"l'{sector}" if elide else f"la {sector}"
 
 
-def build_grounding(facts: Dict[str, Any]) -> Dict[str, Any]:
+def build_grounding(industry: str, facts: Dict[str, Any],
+                    win_lo: datetime, win_hi: datetime) -> Dict[str, Any]:
     """Turn the relevant facts numbers into QUALITATIVE French instructions.
     The model never sees a single digit — only directions like
     'évite les mots promotionnels'. This makes numeric hallucination
@@ -312,6 +478,14 @@ def build_grounding(facts: Dict[str, Any]) -> Dict[str, Any]:
     top_share = next((t.get("topic_name")
                       for t in (ct.get("top_5_by_share") or [])
                       if t.get("is_own_industry")), None)
+
+    # (FIX 1/3) Never feed a competitor-brand or out-of-season theme name into
+    # the LLM context — otherwise it echoes them into captions / ad_angles.
+    def _safe(n: Optional[str]) -> Optional[str]:
+        return n if (n and _theme_is_client_safe(n, win_lo, win_hi)) else None
+    emerging    = _safe(emerging)
+    underserved = _safe(underserved)
+    top_share   = _safe(top_share)
 
     # Ordered, distinct angle pool — rotated per post so the ad_angle is not
     # fixated on a single (possibly out-of-season) trend campaign-wide.
@@ -486,6 +660,14 @@ def validate_prose(text: str) -> List[str]:
         bad.append("contient « @ » (interdit)")
     if len(_EN_MARKERS.findall(text)) >= 2:
         bad.append("contient des mots anglais (réponse 100% française exigée)")
+    # (FIX 4) Block competitor brand names (conservative whole-token list —
+    # no possessive/'&' heuristic here, to avoid French false positives).
+    if _BRAND_RE.search(text):
+        bad.append("contient un nom de marque concurrente (interdit)")
+    # (FIX 4) Block chatbot / meta phrasing addressed to the operator.
+    tl = text.lower()
+    if any(p in tl for p in _META_PHRASES):
+        bad.append("contient une formulation méta/chatbot (interdite)")
     return bad
 
 
@@ -494,7 +676,9 @@ def _repair_suffix(violations: List[str]) -> str:
             "violait des règles ABSOLUES :\n- "
             + "\n- ".join(violations)
             + "\nRéécris INTÉGRALEMENT en respectant le gabarit EXACT et "
-              "SANS aucun chiffre, hashtag, « @ », mot anglais ni marque.")
+              "SANS aucun chiffre, hashtag, « @ », mot anglais, nom de marque "
+              "ni formulation méta/chatbot (écris UNIQUEMENT le contenu "
+              "marketing demandé, sans t'adresser à l'utilisateur).")
 
 
 # ── Deterministic fallback (template-owned, trusted, never validated) ─────────
@@ -645,14 +829,21 @@ def build_industry(industry: str, llm, no_llm: bool) -> Optional[Dict[str, Any]]
     if forecast is None or facts is None:
         return None
 
-    pools = build_pools(facts)
-    g     = build_grounding(facts)
+    # Campaign window = first Prophet week .. last (4th) Prophet week + 6 days.
+    # Drives the date-aware seasonal filter (FIX 3).
+    win_lo = datetime.strptime(forecast[0]["week"], "%Y-%m-%d")
+    win_hi = datetime.strptime(forecast[-1]["week"], "%Y-%m-%d") + timedelta(days=6)
+
+    pools = build_pools(industry, facts, win_lo, win_hi)
+    g     = build_grounding(industry, facts, win_lo, win_hi)
     camp  = build_skeleton(industry, forecast, facts, pools)
 
     n_posts = sum(len(w["posts"]) for w in camp["weeks"])
     print(f"    Anchor : {camp['anchor_week']}  | weeks: "
           + " ".join(f"{w['week_start']}({w['intensity']}×{w['posts_recommended']})"
                      for w in camp["weeks"]))
+    print(f"    Window : {win_lo.date()} → {win_hi.date()}  | themes kept: "
+          + ", ".join(t["topic_name"] for t in pools["themes_pool"]))
     print(f"    Posts  : {n_posts}  | LLM calls planned: "
           f"{0 if no_llm else n_posts + 1}")
 
