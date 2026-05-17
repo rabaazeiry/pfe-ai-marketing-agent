@@ -144,7 +144,8 @@
         "insights": "Insights",
         "market": "Market",
         "swot": "SWOT",
-        "competitors": "Competitors"
+        "competitors": "Competitors",
+        "campaign": "Campaign"
       },
       "wizard": {
         "back": "Back",
@@ -162,7 +163,8 @@
         "title": "Something went wrong",
         "project": "We couldn't load this project. Try again in a moment.",
         "competitors": "We couldn't load competitors for this project.",
-        "insights": "We couldn't load insights. The analysis may not be ready yet."
+        "insights": "We couldn't load insights. The analysis may not be ready yet.",
+        "campaign": "We couldn't load the campaign. It may not be ready yet."
       },
       "competitors": {
         "title": "Competitors",
@@ -221,6 +223,34 @@
         "topCompetitorSignal": "Top competitor signal",
         "engagementTrend": "Engagement trend",
         "recommendedAction": "Recommended action"
+      },
+      "campaign": {
+        "title": "Campaign",
+        "subtitle": "Four-week content calendar, anchored on Prophet forecasts.",
+        "empty": "No campaign yet",
+        "unsupportedIndustry": "This industry is not yet supported. Available: hotels, restaurants, beauty, fashion, patisserie.",
+        "industryBadge": "Industry: {{industry}}",
+        "regenerate": "Regenerate",
+        "regenerating": "Generating (~15 min)…",
+        "objective": "Objective",
+        "targetAudience": "Target audience",
+        "platforms": "Platforms",
+        "weekLabel": "Week {{index}}",
+        "predictedEngagement": "Predicted engagement",
+        "postsCount": "{{count}} post(s)",
+        "intensity": {
+          "high": "High",
+          "normal": "Normal",
+          "low": "Light"
+        },
+        "showDetails": "Show details",
+        "hideDetails": "Hide details",
+        "caption": "Caption",
+        "hook": "Hook",
+        "adAngle": "Ad angle",
+        "productionGuide": "Production guide",
+        "visualRecommendation": "Visual recommendation",
+        "statusHint": "Post generation status (OK / repaired / fallback)"
       },
       "marketResearch": {
         "title": "Market research",

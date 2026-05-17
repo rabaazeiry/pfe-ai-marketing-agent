@@ -144,7 +144,8 @@
         "insights": "Insights",
         "market": "Marché",
         "swot": "SWOT",
-        "competitors": "Concurrents"
+        "competitors": "Concurrents",
+        "campaign": "Campagne"
       },
       "wizard": {
         "back": "Précédent",
@@ -162,7 +163,8 @@
         "title": "Une erreur est survenue",
         "project": "Impossible de charger ce projet. Réessayez dans un instant.",
         "competitors": "Impossible de charger les concurrents de ce projet.",
-        "insights": "Impossible de charger les insights. L'analyse n'est peut-être pas prête."
+        "insights": "Impossible de charger les insights. L'analyse n'est peut-être pas prête.",
+        "campaign": "Impossible de charger la campagne. Elle n'est peut-être pas encore prête."
       },
       "competitors": {
         "title": "Concurrents",
@@ -221,6 +223,34 @@
         "topCompetitorSignal": "Signal concurrent fort",
         "engagementTrend": "Tendance d'engagement",
         "recommendedAction": "Action recommandée"
+      },
+      "campaign": {
+        "title": "Campagne",
+        "subtitle": "Calendrier de contenu sur quatre semaines, ancré sur les prévisions Prophet.",
+        "empty": "Aucune campagne pour l'instant",
+        "unsupportedIndustry": "Cette industrie n'est pas encore couverte. Industries disponibles : hôtellerie, restauration, beauté, mode, pâtisserie.",
+        "industryBadge": "Industrie : {{industry}}",
+        "regenerate": "Régénérer",
+        "regenerating": "Génération (~15 min)…",
+        "objective": "Objectif",
+        "targetAudience": "Public cible",
+        "platforms": "Plateformes",
+        "weekLabel": "Semaine {{index}}",
+        "predictedEngagement": "Engagement prévu",
+        "postsCount": "{{count}} post(s)",
+        "intensity": {
+          "high": "Intense",
+          "normal": "Normale",
+          "low": "Légère"
+        },
+        "showDetails": "Voir le détail",
+        "hideDetails": "Masquer le détail",
+        "caption": "Légende",
+        "hook": "Accroche",
+        "adAngle": "Angle publicitaire",
+        "productionGuide": "Guide de production",
+        "visualRecommendation": "Recommandation visuelle",
+        "statusHint": "Statut de génération du post (OK / réparé / fallback)"
       },
       "marketResearch": {
         "title": "Étude de marché",

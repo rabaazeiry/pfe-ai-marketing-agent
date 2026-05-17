@@ -2,11 +2,12 @@ import { useEffect, useMemo } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { FiActivity, FiAlertTriangle, FiBarChart2, FiPieChart, FiTrendingUp, FiUsers } from 'react-icons/fi';
+import { FiActivity, FiAlertTriangle, FiBarChart2, FiCalendar, FiPieChart, FiTrendingUp, FiUsers } from 'react-icons/fi';
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { CompetitorsSection } from '@/features/projects/components/CompetitorsSection';
 import { PipelineSection } from '@/features/projects/components/PipelineSection';
 import { InsightsSection } from '@/features/projects/components/InsightsSection';
+import { CampaignSection } from '@/features/projects/components/CampaignSection';
 import { ProjectDetailSkeleton } from '@/features/projects/components/ProjectDetailSkeleton';
 import { ProjectWizard, type WizardStep } from '@/features/projects/components/ProjectWizard';
 import { MarketResearchSection } from '@/features/marketResearch/components/MarketResearchSection';
@@ -68,6 +69,17 @@ export function ProjectDetailPage() {
             competitors={competitors.data}
             isLoading={competitors.isLoading}
             isError={competitors.isError}
+          />
+        )
+      },
+      {
+        id: 'campaign',
+        labelKey: 'projects.detail.tabs.campaign',
+        icon: <FiCalendar />,
+        render: () => (
+          <CampaignSection
+            industry={project.data?.industry}
+            marketCategory={project.data?.marketCategory}
           />
         )
       }

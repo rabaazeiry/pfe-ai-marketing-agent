@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  getCampaignByIndustry,
   getInsightsByIndustry,
   getProjectCompetitors,
   getProjectDetail,
   getProjectInsights,
+  regenerateCampaign,
   regenerateIndustryInsights,
 } from './detail.api';
 import type { IndustryKey } from './types';
@@ -49,6 +51,26 @@ export function useRegenerateIndustryInsights(industry: IndustryKey | null) {
     onSuccess: (bundle) => {
       // Script ran synchronously — seed the cache immediately with fresh data
       queryClient.setQueryData(['insights', 'industry', industry], bundle);
+    },
+  });
+}
+
+export function useIndustryCampaign(industry: IndustryKey | null) {
+  return useQuery({
+    queryKey: ['campaign', 'industry', industry],
+    queryFn: () => getCampaignByIndustry(industry!),
+    enabled: !!industry,
+    staleTime: 5 * 60_000
+  });
+}
+
+export function useRegenerateIndustryCampaign(industry: IndustryKey | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => regenerateCampaign(industry!),
+    onSuccess: (bundle) => {
+      // Script ran synchronously — seed the cache immediately with fresh data
+      queryClient.setQueryData(['campaign', 'industry', industry], bundle);
     },
   });
 }

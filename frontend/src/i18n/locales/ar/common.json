@@ -144,7 +144,8 @@
         "insights": "الرؤى",
         "market": "السوق",
         "swot": "SWOT",
-        "competitors": "المنافسون"
+        "competitors": "المنافسون",
+        "campaign": "الحملة"
       },
       "wizard": {
         "back": "السابق",
@@ -162,7 +163,8 @@
         "title": "حدث خطأ ما",
         "project": "تعذّر تحميل هذا المشروع. حاول مجدداً بعد قليل.",
         "competitors": "تعذّر تحميل المنافسين لهذا المشروع.",
-        "insights": "تعذّر تحميل الرؤى. قد لا يكون التحليل جاهزاً بعد."
+        "insights": "تعذّر تحميل الرؤى. قد لا يكون التحليل جاهزاً بعد.",
+        "campaign": "تعذّر تحميل الحملة. قد لا تكون جاهزة بعد."
       },
       "competitors": {
         "title": "المنافسون",
@@ -217,6 +219,34 @@
         "topCompetitorSignal": "أقوى إشارة منافس",
         "engagementTrend": "اتجاه التفاعل",
         "recommendedAction": "إجراء موصى به"
+      },
+      "campaign": {
+        "title": "الحملة",
+        "subtitle": "تقويم محتوى لأربعة أسابيع، مرتكز على توقعات Prophet.",
+        "empty": "لا توجد حملة بعد",
+        "unsupportedIndustry": "هذا القطاع غير مدعوم بعد. القطاعات المتاحة: الفنادق، المطاعم، التجميل، الأزياء، الحلويات.",
+        "industryBadge": "القطاع: {{industry}}",
+        "regenerate": "إعادة التوليد",
+        "regenerating": "جارٍ التوليد (~15 دقيقة)…",
+        "objective": "الهدف",
+        "targetAudience": "الجمهور المستهدف",
+        "platforms": "المنصات",
+        "weekLabel": "الأسبوع {{index}}",
+        "predictedEngagement": "التفاعل المتوقع",
+        "postsCount": "{{count}} منشور(ات)",
+        "intensity": {
+          "high": "مكثّفة",
+          "normal": "عادية",
+          "low": "خفيفة"
+        },
+        "showDetails": "عرض التفاصيل",
+        "hideDetails": "إخفاء التفاصيل",
+        "caption": "التعليق",
+        "hook": "الجملة الافتتاحية",
+        "adAngle": "الزاوية الإعلانية",
+        "productionGuide": "دليل الإنتاج",
+        "visualRecommendation": "التوصية البصرية",
+        "statusHint": "حالة توليد المنشور (سليم / مُصلَح / احتياطي)"
       },
       "marketResearch": {
         "title": "دراسة السوق",

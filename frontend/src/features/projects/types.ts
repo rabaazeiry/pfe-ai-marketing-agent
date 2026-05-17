@@ -127,3 +127,49 @@ export type IndustryInsightsBundle = {
   temperature: number;
   questions: RagQuestionBlock[];
 };
+
+// ─── Campaign (Step 5) ───────────────────────────────────────────────
+// Matches campaign_<industry>.json produced by scripts/campaign_generator.py.
+// Per-post `status` is OK | REPAIRED | FALLBACK (kept as string, like
+// RagQuestionBlock.status, to tolerate future values).
+
+export type CampaignPost = {
+  post_index: number;
+  date: string;                  // ISO day, e.g. "2026-05-11"
+  day_of_week: string;           // localized, e.g. "lundi"
+  best_time: string;             // e.g. "22h"
+  format: string;                // reel | carousel | photo | …
+  theme: string;
+  hashtags: string[];
+  caption: string;
+  hook: string;
+  ad_angle: string;
+  production_guide: string;
+  visual_recommendation: string;
+  status: string;                // OK | REPAIRED | FALLBACK
+};
+
+export type CampaignWeek = {
+  week_index: number;
+  week_start: string;            // ISO Monday, e.g. "2026-05-10"
+  intensity: string;             // high | normal | low
+  predicted_engagement: number;  // Prophet-anchored, 0..1
+  posts_recommended: number;
+  posts: CampaignPost[];
+};
+
+export type CampaignBundle = {
+  version: string;
+  industry: IndustryKey;
+  generated_at: string;
+  model: string;
+  anchor_week: string;
+  campaign_summary: {
+    title: string;
+    objective: string;
+    target_audience: string;
+    platforms: string[];
+    status: string;
+  };
+  weeks: CampaignWeek[];
+};

@@ -1,5 +1,6 @@
 import { api } from '@/lib/api/client';
 import type {
+  CampaignBundle,
   CompetitorSummary,
   IndustryInsightsBundle,
   IndustryKey,
@@ -70,6 +71,40 @@ export async function regenerateIndustryInsights(
     `/insights/${industry}/regenerate`,
     null,
     { timeout: 10 * 60 * 1000 } // 10 min — script takes ~2-3 min
+  );
+  return data.data;
+}
+
+/**
+ * GET /campaign/:industry — returns the Step 5 campaign bundle
+ * (4-week Prophet-anchored calendar) for one of the supported industries.
+ * Returns null on 404/501 so the UI can show an empty state.
+ */
+export async function getCampaignByIndustry(
+  industry: IndustryKey
+): Promise<CampaignBundle | null> {
+  try {
+    const { data } = await api.get<{ success: boolean; data: CampaignBundle }>(
+      `/campaign/${industry}`
+    );
+    return data.data;
+  } catch (err) {
+    if (isMissingEndpoint(err)) return null;
+    throw err;
+  }
+}
+
+/**
+ * POST /campaign/:industry/regenerate — runs the Python campaign generator
+ * synchronously (~15 min) and returns the freshly generated campaign bundle.
+ */
+export async function regenerateCampaign(
+  industry: IndustryKey
+): Promise<CampaignBundle> {
+  const { data } = await api.post<{ success: boolean; data: CampaignBundle }>(
+    `/campaign/${industry}/regenerate`,
+    null,
+    { timeout: 10 * 60 * 1000 } // 10 min — same as insights regenerate
   );
   return data.data;
 }
