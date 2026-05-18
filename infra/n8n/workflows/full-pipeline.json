@@ -1,0 +1,618 @@
+{
+  "name": "Full Analysis Pipeline (Steps 1-5)",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true },
+  "pinData": {},
+  "meta": {
+    "description": "Parallel orchestration layer. Calls the EXISTING backend over HTTP only — no business logic is reimplemented. Manual trigger. Steps 1->2->3 always run; Steps 4/5 branch on the 'mode' input (fast = GET artifacts, full = fire regenerate then poll generated_at). Backend must run on the Windows host (npm run dev); this workflow runs in the n8n container and reaches it via host.docker.internal."
+  },
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1360, 400],
+      "parameters": {}
+    },
+    {
+      "id": "pipeline-inputs",
+      "name": "Pipeline Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1160, 400],
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────\n// EDIT THESE VALUES, then click \"Test workflow\".\n// ─────────────────────────────────────────────────────────────\nconst CONFIG = {\n  // n8n (Docker) -> backend on the Windows host (npm run dev).\n  // If you ever run the backend in compose instead, use http://backend:5000/api\n  baseUrl: 'http://host.docker.internal:5000/api',\n\n  // Existing app account — the workflow logs in to obtain a JWT.\n  email: 'amirapfa@gmail.com',\n  password: 'CHANGE_ME',\n\n  // Step 1 — project input\n  businessIdea: 'Boutique eco-friendly hotel chain on the Tunisian coast targeting conscious travellers',\n  marketCategory: 'Hotels',\n  targetCountry: 'Tunisie',\n  competitorsHint: [],\n\n  // Steps 4/5 mode:  'fast' = GET existing artifacts | 'full' = regenerate + poll\n  mode: 'fast',\n\n  // Steps 4/5 are industry-scoped (NOT projectId-scoped). Leave '' to\n  // derive from the project's detected industry; or force one of:\n  // hotels | restaurants | beauty | fashion | patisserie\n  industry: '',\n  fallbackIndustry: 'hotels',\n\n  // Step 2\n  discoverMaxResults: 30,\n  swotLimit: 3,                // SWOT is per-competitor (LLM). Cap for demo speed; raise for full coverage.\n\n  // Step 3 scraping\n  scrapePlatform: 'instagram', // 'instagram' = /scrape-instagram | 'both' = /scrape\n  scrapeWaitSeconds: 20,\n  scrapeMaxPolls: 60,          // 60 x 20s = 20 min ceiling\n\n  // Step 4/5 'full' regenerate polling\n  regenWaitSeconds: 30,\n  regenMaxPolls: 60            // 60 x 30s = 30 min ceiling per artifact\n};\nreturn [{ json: CONFIG }];"
+      }
+    },
+    {
+      "id": "login",
+      "name": "Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-960, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Inputs').first().json.baseUrl + '/auth/login' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Pipeline Inputs').first().json.email, password: $('Pipeline Inputs').first().json.password }) }}",
+        "options": { "timeout": 30000 }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "step1-create-project",
+      "name": "Step1 Create Project",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-760, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Inputs').first().json.baseUrl + '/projects' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Login').first().json.token }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ businessIdea: $('Pipeline Inputs').first().json.businessIdea, marketCategory: $('Pipeline Inputs').first().json.marketCategory, targetCountry: $('Pipeline Inputs').first().json.targetCountry, competitorsHint: $('Pipeline Inputs').first().json.competitorsHint }) }}",
+        "options": { "timeout": 120000 }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "resolve-context",
+      "name": "Resolve Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 400],
+      "parameters": {
+        "jsCode": "const cfg = $('Pipeline Inputs').first().json;\nconst login = $('Login').first().json;\nconst step1 = $('Step1 Create Project').first().json;\n\nconst token = login && login.token;\nif (!token) throw new Error('Login returned no token — check email/password/baseUrl');\n\nconst project = (step1 && step1.data && step1.data.project) || {};\nconst projectId = project._id;\nif (!projectId) throw new Error('Step 1 returned no project id');\n\nconst VALID = ['hotels','restaurants','beauty','fashion','patisserie'];\nfunction mapIndustry(raw) {\n  const s = String(raw || '').toLowerCase();\n  if (/hotel|h\\u00f4tel|hospitality|h\\u00f4teller|riad|resort|lodg/.test(s)) return 'hotels';\n  if (/restaur|resto|dining|food|caf[\\u00e9e]|catering/.test(s)) return 'restaurants';\n  if (/beaut|cosmet|spa|salon|skincare|makeup|maquill/.test(s)) return 'beauty';\n  if (/fashion|mode|cloth|apparel|textile|v[\\u00eae]tement/.test(s)) return 'fashion';\n  if (/p[\\u00e2a]tisser|bakery|boulanger|pastry|cake|dessert/.test(s)) return 'patisserie';\n  return null;\n}\nlet industry = String(cfg.industry || '').toLowerCase().trim();\nif (!VALID.includes(industry)) {\n  industry = mapIndustry(project.industry) || mapIndustry(cfg.marketCategory) || cfg.fallbackIndustry || 'hotels';\n}\n\nconst scrapePath = cfg.scrapePlatform === 'both' ? 'scrape' : 'scrape-instagram';\n\nreturn [{ json: {\n  token,\n  projectId,\n  industry,\n  projectIndustryRaw: project.industry || null,\n  mode: (cfg.mode === 'full' ? 'full' : 'fast'),\n  baseUrl: cfg.baseUrl,\n  scrapePath\n} }];"
+      }
+    },
+    {
+      "id": "step2a-discover",
+      "name": "Step2a Discover",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-360, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/competitors/project/' + $('Resolve Context').first().json.projectId + '/discover' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ maxResults: $('Pipeline Inputs').first().json.discoverMaxResults }) }}",
+        "options": { "timeout": 600000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "step2b-enrich",
+      "name": "Step2b Enrich",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-160, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/competitors/project/' + $('Resolve Context').first().json.projectId + '/enrich' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": { "timeout": 600000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "step2c-classify",
+      "name": "Step2c Classify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/projects/' + $('Resolve Context').first().json.projectId + '/classify' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 900000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "step2d-market-research",
+      "name": "Step2d Market Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/market-research/project/' + $('Resolve Context').first().json.projectId + '/generate' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 600000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "list-competitors",
+      "name": "List Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/competitors/project/' + $('Resolve Context').first().json.projectId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "swot-targets",
+      "name": "SWOT Targets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 400],
+      "parameters": {
+        "jsCode": "const cfg = $('Pipeline Inputs').first().json;\nlet comps = [];\ntry { comps = ($('List Competitors').first().json.data) || []; } catch (e) { comps = []; }\nconst limit = Number(cfg.swotLimit) || 0;\nconst picked = comps.slice(0, limit);\nif (picked.length === 0) {\n  // keep the chain alive; the SWOT POST will 400 and is skipped (resilient)\n  return [{ json: { competitorId: '', companyName: '(no competitors / swotLimit=0)' } }];\n}\nreturn picked.map(c => ({ json: { competitorId: c._id, companyName: c.companyName } }));"
+      }
+    },
+    {
+      "id": "loop-swot",
+      "name": "Loop SWOT",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [840, 400],
+      "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "step2e-swot",
+      "name": "Step2e Generate SWOT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 540],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/swot/competitor/' + $json.competitorId + '/generate' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 300000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "build-scrape-request",
+      "name": "Build Scrape Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 260],
+      "parameters": {
+        "jsCode": "const ctx = $('Resolve Context').first().json;\nlet comps = [];\ntry { comps = ($('List Competitors').first().json.data) || []; } catch (e) { comps = []; }\nconst competitorIds = comps.map(c => c._id).filter(Boolean);\nreturn [{ json: { competitorIds, competitorCount: competitorIds.length } }];"
+      }
+    },
+    {
+      "id": "step3-trigger-scrape",
+      "name": "Step3 Trigger Scrape",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 260],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/scraping/project/' + $('Resolve Context').first().json.projectId + '/' + $('Resolve Context').first().json.scrapePath }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ competitorIds: $json.competitorIds }) }}",
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "wait-scrape",
+      "name": "Wait Scrape",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1440, 260],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ Number($('Pipeline Inputs').first().json.scrapeWaitSeconds) }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "step3-status",
+      "name": "Step3 Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1640, 260],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/scraping/project/' + $('Resolve Context').first().json.projectId + '/status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "eval-scrape",
+      "name": "Eval Scrape",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, 260],
+      "parameters": {
+        "jsCode": "const cfg = $('Pipeline Inputs').first().json;\nconst j = $input.first().json;\nconst sc = (j && j.data && j.data.statusCount) || {};\nconst total = Number(sc.total || 0);\nconst done = total === 0 ? true : (Number(sc.in_progress || 0) === 0 && Number(sc.pending || 0) === 0);\nconst exhausted = $runIndex >= (Number(cfg.scrapeMaxPolls) || 60);\nreturn [{ json: { ...j, _done: done || exhausted, _scrapeDone: done, _attempt: $runIndex } }];"
+      }
+    },
+    {
+      "id": "scrape-done",
+      "name": "Scrape Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2040, 260],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "combinator": "and",
+          "conditions": [
+            { "id": "cond-scrape-done", "leftValue": "={{ $json._done }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "mode-switch",
+      "name": "Mode Switch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2240, 260],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "combinator": "and",
+          "conditions": [
+            { "id": "cond-mode-full", "leftValue": "={{ $('Resolve Context').first().json.mode }}", "rightValue": "full", "operator": { "type": "string", "operation": "equals" } }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fast-get-insights",
+      "name": "Fast Get Insights",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 460],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/insights/' + $('Resolve Context').first().json.industry }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "fast-get-campaign",
+      "name": "Fast Get Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 460],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/campaign/' + $('Resolve Context').first().json.industry }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "insights-baseline",
+      "name": "Insights Baseline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 60],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/insights/' + $('Resolve Context').first().json.industry }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "fire-insights-regen",
+      "name": "Fire Insights Regenerate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 60],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/insights/' + $('Resolve Context').first().json.industry + '/regenerate' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "wait-insights",
+      "name": "Wait Insights",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2840, 60],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ Number($('Pipeline Inputs').first().json.regenWaitSeconds) }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "poll-insights",
+      "name": "Poll Insights",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3040, 60],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/insights/' + $('Resolve Context').first().json.industry }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "eval-insights",
+      "name": "Eval Insights",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3240, 60],
+      "parameters": {
+        "jsCode": "const cfg = $('Pipeline Inputs').first().json;\nconst j = $input.first().json;\nlet baseline = null;\ntry { baseline = $('Insights Baseline').first().json.data.generated_at || null; } catch (e) { baseline = null; }\nconst cur = (j && j.data && j.data.generated_at) || null;\nconst updated = !!cur && cur !== baseline;\nconst exhausted = $runIndex >= (Number(cfg.regenMaxPolls) || 60);\nreturn [{ json: { ...j, _done: updated || exhausted, _updated: updated, _baseline: baseline, _current: cur, _attempt: $runIndex } }];"
+      }
+    },
+    {
+      "id": "insights-updated",
+      "name": "Insights Updated?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3440, 60],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "combinator": "and",
+          "conditions": [
+            { "id": "cond-insights-updated", "leftValue": "={{ $json._done }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "campaign-baseline",
+      "name": "Campaign Baseline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3640, 60],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/campaign/' + $('Resolve Context').first().json.industry }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "fire-campaign-regen",
+      "name": "Fire Campaign Regenerate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3840, 60],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/campaign/' + $('Resolve Context').first().json.industry + '/regenerate' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "wait-campaign",
+      "name": "Wait Campaign",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [4040, 60],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ Number($('Pipeline Inputs').first().json.regenWaitSeconds) }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "poll-campaign",
+      "name": "Poll Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4240, 60],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Resolve Context').first().json.baseUrl + '/campaign/' + $('Resolve Context').first().json.industry }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Resolve Context').first().json.token }}" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "eval-campaign",
+      "name": "Eval Campaign",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4440, 60],
+      "parameters": {
+        "jsCode": "const cfg = $('Pipeline Inputs').first().json;\nconst j = $input.first().json;\nlet baseline = null;\ntry { baseline = $('Campaign Baseline').first().json.data.generated_at || null; } catch (e) { baseline = null; }\nconst cur = (j && j.data && j.data.generated_at) || null;\nconst updated = !!cur && cur !== baseline;\nconst exhausted = $runIndex >= (Number(cfg.regenMaxPolls) || 60);\nreturn [{ json: { ...j, _done: updated || exhausted, _updated: updated, _baseline: baseline, _current: cur, _attempt: $runIndex } }];"
+      }
+    },
+    {
+      "id": "campaign-updated",
+      "name": "Campaign Updated?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [4640, 60],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "combinator": "and",
+          "conditions": [
+            { "id": "cond-campaign-updated", "leftValue": "={{ $json._done }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "pipeline-result",
+      "name": "Pipeline Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4940, 260],
+      "parameters": {
+        "jsCode": "const ctx = $('Resolve Context').first().json;\nlet insights = null, campaign = null, scrape = null;\ntry { scrape = $('Step3 Status').last().json.data.statusCount || null; } catch (e) {}\nif (ctx.mode === 'full') {\n  try { insights = $('Poll Insights').last().json.data || null; } catch (e) {}\n  try { campaign = $('Poll Campaign').last().json.data || null; } catch (e) {}\n} else {\n  try { insights = $('Fast Get Insights').first().json.data || null; } catch (e) {}\n  try { campaign = $('Fast Get Campaign').first().json.data || null; } catch (e) {}\n}\nreturn [{ json: {\n  ok: true,\n  mode: ctx.mode,\n  projectId: ctx.projectId,\n  industry: ctx.industry,\n  projectIndustryRaw: ctx.projectIndustryRaw,\n  scrapeStatusCount: scrape,\n  insightsGeneratedAt: insights ? insights.generated_at : null,\n  campaignGeneratedAt: campaign ? campaign.generated_at : null,\n  insightsQuestions: insights ? (insights.n_questions != null ? insights.n_questions : (insights.questions ? insights.questions.length : null)) : null,\n  campaignWeeks: campaign && campaign.weeks ? campaign.weeks.length : null,\n  insights,\n  campaign\n} }];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Pipeline Inputs", "type": "main", "index": 0 }]] },
+    "Pipeline Inputs": { "main": [[{ "node": "Login", "type": "main", "index": 0 }]] },
+    "Login": { "main": [[{ "node": "Step1 Create Project", "type": "main", "index": 0 }]] },
+    "Step1 Create Project": { "main": [[{ "node": "Resolve Context", "type": "main", "index": 0 }]] },
+    "Resolve Context": { "main": [[{ "node": "Step2a Discover", "type": "main", "index": 0 }]] },
+    "Step2a Discover": { "main": [[{ "node": "Step2b Enrich", "type": "main", "index": 0 }]] },
+    "Step2b Enrich": { "main": [[{ "node": "Step2c Classify", "type": "main", "index": 0 }]] },
+    "Step2c Classify": { "main": [[{ "node": "Step2d Market Research", "type": "main", "index": 0 }]] },
+    "Step2d Market Research": { "main": [[{ "node": "List Competitors", "type": "main", "index": 0 }]] },
+    "List Competitors": { "main": [[{ "node": "SWOT Targets", "type": "main", "index": 0 }]] },
+    "SWOT Targets": { "main": [[{ "node": "Loop SWOT", "type": "main", "index": 0 }]] },
+    "Loop SWOT": { "main": [[{ "node": "Build Scrape Request", "type": "main", "index": 0 }], [{ "node": "Step2e Generate SWOT", "type": "main", "index": 0 }]] },
+    "Step2e Generate SWOT": { "main": [[{ "node": "Loop SWOT", "type": "main", "index": 0 }]] },
+    "Build Scrape Request": { "main": [[{ "node": "Step3 Trigger Scrape", "type": "main", "index": 0 }]] },
+    "Step3 Trigger Scrape": { "main": [[{ "node": "Wait Scrape", "type": "main", "index": 0 }]] },
+    "Wait Scrape": { "main": [[{ "node": "Step3 Status", "type": "main", "index": 0 }]] },
+    "Step3 Status": { "main": [[{ "node": "Eval Scrape", "type": "main", "index": 0 }]] },
+    "Eval Scrape": { "main": [[{ "node": "Scrape Done?", "type": "main", "index": 0 }]] },
+    "Scrape Done?": { "main": [[{ "node": "Mode Switch", "type": "main", "index": 0 }], [{ "node": "Wait Scrape", "type": "main", "index": 0 }]] },
+    "Mode Switch": { "main": [[{ "node": "Insights Baseline", "type": "main", "index": 0 }], [{ "node": "Fast Get Insights", "type": "main", "index": 0 }]] },
+    "Fast Get Insights": { "main": [[{ "node": "Fast Get Campaign", "type": "main", "index": 0 }]] },
+    "Fast Get Campaign": { "main": [[{ "node": "Pipeline Result", "type": "main", "index": 0 }]] },
+    "Insights Baseline": { "main": [[{ "node": "Fire Insights Regenerate", "type": "main", "index": 0 }]] },
+    "Fire Insights Regenerate": { "main": [[{ "node": "Wait Insights", "type": "main", "index": 0 }]] },
+    "Wait Insights": { "main": [[{ "node": "Poll Insights", "type": "main", "index": 0 }]] },
+    "Poll Insights": { "main": [[{ "node": "Eval Insights", "type": "main", "index": 0 }]] },
+    "Eval Insights": { "main": [[{ "node": "Insights Updated?", "type": "main", "index": 0 }]] },
+    "Insights Updated?": { "main": [[{ "node": "Campaign Baseline", "type": "main", "index": 0 }], [{ "node": "Wait Insights", "type": "main", "index": 0 }]] },
+    "Campaign Baseline": { "main": [[{ "node": "Fire Campaign Regenerate", "type": "main", "index": 0 }]] },
+    "Fire Campaign Regenerate": { "main": [[{ "node": "Wait Campaign", "type": "main", "index": 0 }]] },
+    "Wait Campaign": { "main": [[{ "node": "Poll Campaign", "type": "main", "index": 0 }]] },
+    "Poll Campaign": { "main": [[{ "node": "Eval Campaign", "type": "main", "index": 0 }]] },
+    "Eval Campaign": { "main": [[{ "node": "Campaign Updated?", "type": "main", "index": 0 }]] },
+    "Campaign Updated?": { "main": [[{ "node": "Pipeline Result", "type": "main", "index": 0 }], [{ "node": "Wait Campaign", "type": "main", "index": 0 }]] }
+  }
+}
