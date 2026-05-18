@@ -87,6 +87,7 @@ export function ProjectWizard({ steps, storageKey, defaultStepId }: Props) {
               aria-selected={isActive}
               aria-controls={`wizard-panel-${s.id}`}
               id={`wizard-tab-${s.id}`}
+              data-tour={`tab-${s.id}`}
               onClick={() => goTo(s.id)}
               className={clsx(
                 'group inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap',

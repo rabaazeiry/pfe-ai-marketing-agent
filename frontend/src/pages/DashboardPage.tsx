@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
@@ -8,6 +8,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid
 } from 'recharts';
 import { useAuthStore } from '@/stores/auth.store';
+import { useOnboardingStore } from '@/stores/onboarding.store';
 import { formatNumber } from '@/lib/format';
 import { Skeleton } from '@/components/Skeleton';
 import { getDashboardStats } from '@/features/dashboard/api';
@@ -64,6 +65,18 @@ export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const lang = i18n.language;
 
+  // First-login guided tour: auto-start once per user, then mark seen so it
+  // never nags again (re-runnable from Settings → "Revoir le tour").
+  const tourSeenIds = useOnboardingStore((s) => s.seenUserIds);
+  const markTourSeen = useOnboardingStore((s) => s.markSeen);
+  const startTour = useOnboardingStore((s) => s.startTour);
+  useEffect(() => {
+    if (user && !tourSeenIds.includes(user.id)) {
+      markTourSeen(user.id);
+      startTour();
+    }
+  }, [user, tourSeenIds, markTourSeen, startTour]);
+
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
   const { data: projects } = useQuery({
@@ -89,7 +102,7 @@ export function DashboardPage() {
       : `${formatNumber(kpis.avgEngagementRate, lang)}%`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="dashboard">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">

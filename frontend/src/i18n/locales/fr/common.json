@@ -1,4 +1,26 @@
 {
+  "tour": {
+    "step1": "Bienvenue ! Voici votre tableau de bord — vue d'ensemble de vos projets et statistiques.",
+    "step2": "Gérez vos projets d'analyse ici. Cliquez '+ Nouveau projet' pour démarrer.",
+    "step3": "Le Pipeline suit l'avancement : scraping, nettoyage, classification, analyse, insights.",
+    "step4": "L'IA extrait les signaux clés des concurrents : stratégie de contenu, meilleurs horaires, recommandations.",
+    "step5": "Étudiez votre marché : vue sectorielle, analyse SWOT, et liste des concurrents suivis.",
+    "step6": "L'IA génère votre calendrier de contenu sur 30 jours : posts, légendes, hashtags, recommandations visuelles.",
+    "step7": "Vous êtes prêt ! 🎉 Lancez votre première analyse.",
+    "controls": {
+      "back": "Précédent",
+      "next": "Suivant",
+      "skip": "Passer",
+      "last": "Terminer",
+      "close": "Fermer",
+      "nextProgress": "Suivant ({current}/{total})"
+    },
+    "settings": {
+      "title": "Visite guidée",
+      "subtitle": "Revoir la visite du produit étape par étape.",
+      "replay": "Revoir le tour"
+    }
+  },
   "nav": {
     "dashboard": "Tableau de bord",
     "projects": "Projets",

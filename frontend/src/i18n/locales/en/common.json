@@ -1,4 +1,26 @@
 {
+  "tour": {
+    "step1": "Welcome! This is your dashboard — an overview of your projects and statistics.",
+    "step2": "Manage your analysis projects here. Click '+ New project' to get started.",
+    "step3": "The Pipeline tracks progress: scraping, cleaning, classification, analysis, insights.",
+    "step4": "AI extracts key competitor signals: content strategy, best times, recommendations.",
+    "step5": "Study your market: sector overview, SWOT analysis, and the list of tracked competitors.",
+    "step6": "AI generates your 30-day content calendar: posts, captions, hashtags, visual recommendations.",
+    "step7": "You're all set! 🎉 Launch your first analysis.",
+    "controls": {
+      "back": "Back",
+      "next": "Next",
+      "skip": "Skip",
+      "last": "Finish",
+      "close": "Close",
+      "nextProgress": "Next ({current}/{total})"
+    },
+    "settings": {
+      "title": "Guided tour",
+      "subtitle": "Replay the product walkthrough step by step.",
+      "replay": "Replay the tour"
+    }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "projects": "Projects",

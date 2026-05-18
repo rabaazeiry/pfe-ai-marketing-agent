@@ -2,6 +2,7 @@ import { Outlet } from '@tanstack/react-router';
 import { Sidenav } from './Sidenav';
 import { Topbar } from './Topbar';
 import { Footer } from './Footer';
+import { GuidedTour } from '@/features/onboarding/GuidedTour';
 import { useLangEffect } from '@/i18n/useLangEffect';
 
 export function AppShell() {
@@ -16,6 +17,7 @@ export function AppShell() {
         </main>
         <Footer />
       </div>
+      <GuidedTour />
     </div>
   );
 }

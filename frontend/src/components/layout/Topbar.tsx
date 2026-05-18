@@ -54,6 +54,7 @@ export function Topbar() {
             <Link
               key={n.to}
               to={n.to}
+              data-tour={n.to === '/projects' ? 'nav-projects' : undefined}
               className={clsx(
                 'inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                 active
