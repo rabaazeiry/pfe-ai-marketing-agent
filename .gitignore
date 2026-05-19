@@ -5,3 +5,9 @@ node_modules
 *.log
 .DS_Store
 dist/
+
+# Generated tree dumps / local backups / scraper debug output
+structure.txt
+structure_clean.txt
+backup/
+scrapper_old/*.html
