@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "pfe-marketing-agent": {
+      "command": "node",
+      "args": ["mcp-server/src/index.js"],
+      "env": {
+        "BACKEND_URL": "http://localhost:5000/api",
+        "MCP_BACKEND_EMAIL": "n8n-tester@example.com",
+        "MCP_BACKEND_PASSWORD": "N8nPipeline2026!"
+      }
+    }
+  }
+}

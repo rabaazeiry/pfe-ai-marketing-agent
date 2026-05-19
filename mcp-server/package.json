@@ -1,0 +1,22 @@
+{
+  "name": "pfe-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Parallel MCP layer exposing the marketing-agent pipeline as MCP tools. Calls the EXISTING backend over HTTP (JWT, same approach as the n8n layer). Does not modify backend code.",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "inspect": "mcp-inspector node --env-file-if-exists=.env src/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "^0.16.0"
+  }
+}
