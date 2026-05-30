@@ -4,7 +4,8 @@ export type FollowersByBrand = { name: string; followers: number };
 
 export type WeeklyEngagement = {
   week: string;
-  values: { brand: string; engagement: number }[];
+  weekStart?: string; // 'YYYY-MM-DD' — start of the 7-day window (data-relative anchor)
+  values: { brand: string; engagement: number | null }[]; // null = no post that week (gap, not 0)
 };
 
 export type AnalyticsOverview = {

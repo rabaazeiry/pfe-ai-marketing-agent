@@ -370,7 +370,9 @@
     "title": "Analytique",
     "subtitle": "Engagement et portée cross-concurrents.",
     "followers": "Abonnés par marque",
-    "engagementRate": "Taux d'engagement (%) — 4 semaines"
+    "engagementRate": "Taux d'engagement (%) — 4 semaines",
+    "noData": "Pas de données d'engagement pour cette sélection",
+    "weeksNote": "Semaines glissantes ancrées sur la dernière publication scrapée ; une semaine sans publication est laissée vide (et non à zéro)."
   },
   "admin": {
     "title": "Panneau d'administration",

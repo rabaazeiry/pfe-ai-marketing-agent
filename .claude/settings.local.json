@@ -37,7 +37,25 @@
       "Bash(mv *_best_params_v2.json *_forecast_v2.json deprecated_v1_v2/)",
       "Bash(mv plots/*_forecast_plot.png plots/*_components_plot.png plots/all_industries_comparison.png deprecated_v1_v2/plots/)",
       "Bash(git restore *)",
-      "Bash(grep -v '^$')"
+      "Bash(grep -v '^$')",
+      "Bash(.venv/Scripts/python.exe -X utf8 -c ' *)",
+      "Bash(git *)",
+      "Bash(curl -s -o NUL -w \"%{http_code}\" http://localhost:5000/api/health)",
+      "Bash(git log *)",
+      "Bash(ls backend/*.js backend/scripts)",
+      "Bash(grep -rl \"verifyToken\\\\|signToken\\\\|jwt.sign\" backend/scripts)",
+      "Bash(node _smoke_campaign.js)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:5000/api/campaign/beauty/regenerate)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:5000/api/campaignXYZ/beauty/regenerate)",
+      "Bash(echo \"tsc real exit=$?\")",
+      "Bash(curl -s -o NUL -w \"frontend 5173: %{http_code}\\\\n\" http://localhost:5173)",
+      "Bash(node _find_beauty_project.js)",
+      "Bash(node -e \"const p=require\\('./node_modules/react-joyride/package.json'\\);console.log\\('main',p.main,'module',p.module,'types',p.types||p.typings\\);console.log\\('exports',JSON.stringify\\(p.exports\\)\\);\")",
+      "Bash(node *)",
+      "Bash(echo \"TSC_EXIT=$?\")"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "pfe-marketing-agent"
+  ]
 }

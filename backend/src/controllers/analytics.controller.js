@@ -3,9 +3,15 @@
 // GET /api/analytics/overview[?projectId=...]
 // Returns:
 //   followersByBrand:  [{ name, followers }]                       — sum of followers across platforms per brand
-//   engagementOverTime: [{ week: 'W1'..'W4', values: [{ brand, engagement }] }]
-//                                                                  — last 4 rolling weeks
+//   engagementOverTime: [{ week:'W1'.., weekStart:'YYYY-MM-DD', values:[{ brand, engagement|null }] }]
+//                                                                  — the (up to) 4 most recent 7-day windows
+//                                                                    that actually contain posts, anchored on
+//                                                                    the most recent post date (NOT Date.now()),
+//                                                                    so the chart stays populated even when
+//                                                                    viewed weeks after the last scrape
 //                                                                  — engagement = (likes + comments) / brandFollowers, in %
+//                                                                  — engagement = null → brand had no post that
+//                                                                    week (rendered as a gap, not a flat 0)
 //
 // Without projectId  → all projects owned by the user
 // With projectId     → that single project (ownership enforced)
@@ -43,7 +49,7 @@ exports.getAnalyticsOverview = async (req, res, next) => {
       projectIds = projects.map(p => p._id);
     }
 
-    const empty = { followersByBrand: [], engagementOverTime: emptyWeeks() };
+    const empty = { followersByBrand: [], engagementOverTime: [] };
 
     if (projectIds.length === 0) {
       return res.status(200).json({ success: true, data: empty });
@@ -83,45 +89,78 @@ exports.getAnalyticsOverview = async (req, res, next) => {
       .map(([name, followers]) => ({ name, followers }))
       .sort((a, b) => b.followers - a.followers);
 
-    // ── 2) engagementOverTime: bucket recentPosts into the last 4 weeks ──
-    // W1 = oldest (3 weeks ago), W4 = current week
-    const now = Date.now();
+    // ── 2) engagementOverTime: the (up to) 4 most recent 7-day windows that
+    //       actually contain posts. The window is anchored on the most recent
+    //       post date (data-relative), NOT Date.now(): otherwise a stale scrape
+    //       drifts every post out of the window and the chart collapses to 0.
 
-    // brand -> [interactions per week index 0..3]
-    const interactionsByBrandWeek = new Map();
-    function getBucket(brand) {
-      let arr = interactionsByBrandWeek.get(brand);
-      if (!arr) {
-        arr = new Array(WEEKS).fill(0);
-        interactionsByBrandWeek.set(brand, arr);
-      }
-      return arr;
-    }
-
+    // Flatten every dated in-scope post: { brand, ts(ms), interactions }
+    const posts = [];
     for (const a of analyses) {
       const brand = brandByCompetitorId.get(a.competitorId.toString());
       if (!brand) continue;
-      const bucket = getBucket(brand);
       for (const p of (a.recentPosts || [])) {
         if (!p.publishedAt) continue;
-        const ageMs = now - new Date(p.publishedAt).getTime();
-        if (ageMs < 0 || ageMs >= WEEKS * MS_PER_WEEK) continue;
-        const weekIdx = WEEKS - 1 - Math.floor(ageMs / MS_PER_WEEK); // 0 = W1 (oldest), 3 = W4
-        bucket[weekIdx] += (p.likes || 0) + (p.comments || 0);
+        const ts = new Date(p.publishedAt).getTime();
+        if (!Number.isFinite(ts)) continue;
+        posts.push({ brand, ts, interactions: (p.likes || 0) + (p.comments || 0) });
       }
     }
 
-    // Build the per-week structure. Engagement = interactions / brandFollowers, expressed as %
-    const engagementOverTime = emptyWeeks();
-    for (const [brand, weekInteractions] of interactionsByBrandWeek.entries()) {
-      const followers = followersMap.get(brand) || 0;
-      for (let i = 0; i < WEEKS; i++) {
-        const interactions = weekInteractions[i];
-        const engagement = followers > 0
-          ? Number(((interactions / followers) * 100).toFixed(2))
-          : 0;
-        engagementOverTime[i].values.push({ brand, engagement });
+    let engagementOverTime = [];
+    if (posts.length > 0) {
+      // Data-relative anchor = most recent post across the whole scope.
+      const anchor = posts.reduce((m, p) => (p.ts > m ? p.ts : m), -Infinity);
+
+      // bin 0 = the 7 days ending at the anchor, bin 1 = the prior 7 days, …
+      const binOf = (ts) => Math.floor((anchor - ts) / MS_PER_WEEK);
+
+      // Distinct bins that contain ≥1 post, most-recent first → keep up to 4.
+      const populated = [...new Set(posts.map(p => binOf(p.ts)))].sort((x, y) => x - y);
+      const selectedBins = populated.slice(0, WEEKS);
+
+      // Chronological order: oldest selected bin = W1 … most recent = last week.
+      selectedBins.sort((x, y) => y - x);
+      const binToWeekIdx = new Map(selectedBins.map((bin, i) => [bin, i]));
+      const selectedSet  = new Set(selectedBins);
+
+      // Brands that have at least one post inside the selected window.
+      const brandsInWindow = [...new Set(
+        posts.filter(p => selectedSet.has(binOf(p.ts))).map(p => p.brand)
+      )];
+
+      // Accumulate interactions AND post counts per brand × selected week.
+      const acc = new Map(
+        brandsInWindow.map(b => [b, selectedBins.map(() => ({ interactions: 0, count: 0 }))])
+      );
+      for (const p of posts) {
+        const wi = binToWeekIdx.get(binOf(p.ts));
+        if (wi === undefined) continue;
+        const cell = acc.get(p.brand);
+        if (!cell) continue;
+        cell[wi].interactions += p.interactions;
+        cell[wi].count += 1;
       }
+
+      engagementOverTime = selectedBins.map((bin, i) => {
+        const weekStartMs = anchor - (bin + 1) * MS_PER_WEEK; // start of that 7-day window
+        const values = brandsInWindow.map((brand) => {
+          const { interactions, count } = acc.get(brand)[i];
+          const followers = followersMap.get(brand) || 0;
+          // count 0 → brand had NO post that week → null (gap, not a flat 0).
+          // followers ≤ 0 → cannot compute a rate → also null (no data).
+          // count > 0 with 0 interactions → real 0.
+          const engagement = (count === 0 || followers <= 0)
+            ? null
+            : Number(((interactions / followers) * 100).toFixed(2));
+          return { brand, engagement };
+        });
+        return {
+          week     : `W${i + 1}`,
+          weekStart: new Date(weekStartMs).toISOString().slice(0, 10),
+          values
+        };
+      });
     }
 
     return res.status(200).json({
@@ -132,10 +171,3 @@ exports.getAnalyticsOverview = async (req, res, next) => {
     next(err);
   }
 };
-
-function emptyWeeks() {
-  return Array.from({ length: WEEKS }, (_, i) => ({
-    week  : `W${i + 1}`,
-    values: []
-  }));
-}

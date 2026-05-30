@@ -36,9 +36,17 @@ export function AnalyticsPage() {
     const brandSet = new Set<string>();
     weeks.forEach((w) => w.values.forEach((v) => brandSet.add(v.brand)));
     const keys = Array.from(brandSet);
+    const fmtWeek = (w: { week: string; weekStart?: string }) => {
+      if (!w.weekStart) return w.week;
+      const d = new Date(w.weekStart);
+      return Number.isNaN(d.getTime())
+        ? w.week
+        : `${w.week} · ${d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}`;
+    };
     const chart = weeks.map((w) => {
-      const row: Record<string, string | number> = { week: w.week };
-      for (const k of keys) row[k] = 0;
+      // null (NOT 0) for a brand with no post that week → Recharts draws a gap
+      const row: Record<string, string | number | null> = { week: fmtWeek(w) };
+      for (const k of keys) row[k] = null;
       for (const v of w.values) row[v.brand] = v.engagement;
       return row;
     });
@@ -48,8 +56,9 @@ export function AnalyticsPage() {
   const projectLabel = (p: { name?: string; industry?: string; marketCategory?: string }) =>
     p.name || p.industry || p.marketCategory || '—';
 
+  // "has data" = at least one real (non-null) point — a genuine 0 still counts as data
   const hasEngagementData = brandKeys.length > 0 && engagementChart.some((row) =>
-    brandKeys.some((k) => Number(row[k]) > 0)
+    brandKeys.some((k) => row[k] !== null && row[k] !== undefined)
   );
 
   return (
@@ -113,7 +122,7 @@ export function AnalyticsPage() {
             <Skeleton className="h-full w-full" />
           ) : !hasEngagementData ? (
             <div className="h-full grid place-items-center text-sm text-slate-400">
-              {t('dashboard.empty')}
+              {t('analytics.noData')}
             </div>
           ) : (
             <ResponsiveContainer>
@@ -131,12 +140,16 @@ export function AnalyticsPage() {
                     stroke={COLORS[i % COLORS.length]}
                     strokeWidth={2}
                     dot={{ r: 3 }}
+                    connectNulls={false}
                   />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
+        {hasEngagementData && (
+          <p className="mt-2 text-xs text-slate-400">{t('analytics.weeksNote')}</p>
+        )}
       </div>
     </div>
   );

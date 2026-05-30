@@ -370,7 +370,9 @@
     "title": "Analytics",
     "subtitle": "Cross-competitor engagement and reach.",
     "followers": "Followers by brand",
-    "engagementRate": "Engagement rate (%) — 4 weeks"
+    "engagementRate": "Engagement rate (%) — 4 weeks",
+    "noData": "No engagement data for this selection",
+    "weeksNote": "Rolling weeks anchored on the most recent scraped post; a week with no posts is left blank (not a zero)."
   },
   "admin": {
     "title": "Admin panel",
